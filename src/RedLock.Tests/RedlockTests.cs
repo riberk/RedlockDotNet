@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Moq;
 using TestUtils;
 using Xunit;
 
@@ -197,11 +199,91 @@ namespace RedLock.Tests
             Assert.Contains(errorLogs, e => e.Exception == err[1].UnlockAsyncException);
         }
 
+        [Fact]
+        public async Task LockWithRepeater()
+        {
+            using var waitAre = new AutoResetEvent(false);
+            using var waitInvoked = new AutoResetEvent(false);
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.WaitRandom(600)).Callback(() =>
+            {
+                waitInvoked.Set();
+                Assert.True(waitAre.WaitOne(2000));
+            });
+            repeater.Setup(x => x.Next()).Returns(true);
+            var lockTask = Task.Run(() =>
+                Redlock.Lock("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600)
+            );
+            Assert.True(waitInvoked.WaitOne(2000));
+            repeater.Verify(x => x.Next(), Times.Once);
+            Unlock("r", mem);
+            waitAre.Set();
+            await lockTask;
+            Assert.All(mem, i => Assert.True(i.Contains("r", "n")));
+        }
+        
+        [Fact]
+        public void LockWithRepeater_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            Assert.Throws<RedlockException>(() => Redlock.Lock("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600));
+        }
+        
+        
+        
+        [Fact]
+        public async Task LockWithRepeaterAsync()
+        {
+            using var waitAre = new AutoResetEvent(false);
+            using var waitInvoked = new AutoResetEvent(false);
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.WaitRandomAsync(600, CancellationToken.None))
+                .Returns(() =>
+                {
+                    waitInvoked.Set();
+                    Assert.True(waitAre.WaitOne(2000));
+                    return new ValueTask();
+                });
+            repeater.Setup(x => x.Next()).Returns(true);
+            var lockTask = Task.Run(() => Redlock.LockAsync("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600));
+            Assert.True(waitInvoked.WaitOne(2000));
+            repeater.Verify(x => x.Next(), Times.Once);
+            Unlock("r", mem);
+            waitAre.Set();
+            await lockTask;
+            Assert.All(mem, i => Assert.True(i.Contains("r", "n")));
+        }
+        
+        [Fact]
+        public async Task LockWithRepeaterAsync_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            await Assert.ThrowsAsync<RedlockException>(() => Redlock.LockAsync("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600));
+        }
+
         private static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)
         {
             if (instances.Any(instance => !instance.TryLock(key, nonce, TimeSpan.FromDays(10))))
             {
                 throw new InvalidOperationException($"Already locked: ['{key}'] = '{nonce}'");
+            }
+        }
+        
+        private static void Unlock(string key, params MemoryRedlockInstance[] instances)
+        {
+            foreach (var instance in instances)
+            {
+                instance.Unlock(key);
             }
         }
 
@@ -322,6 +404,22 @@ namespace RedLock.Tests
                 lock (this)
                 {
                     return _data.TryGetValue(resource, out var actualNonce) && actualNonce == nonce;
+                }
+            }
+            
+            public void Unlock(string resource)
+            {
+                lock (this)
+                {
+                    _data.Remove(resource);
+                }
+            }
+            
+            public void UnlockAll()
+            {
+                lock (this)
+                {
+                    _data.Clear();
                 }
             }
         }
