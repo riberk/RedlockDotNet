@@ -1,8 +1,7 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using RedLock.Internal;
+using Redlock.Internal;
 
 namespace RedLock
 {
@@ -52,16 +51,23 @@ namespace RedLock
             ILogger logger
         )
         {
+            logger.Locking(resource, nonce, lockTimeToLive);
+
             var lockResult = implementation.Instances.TryLockAll(logger, resource, nonce, lockTimeToLive);
 
             if (lockResult.IsLocked(lockTimeToLive, implementation))
             {
+                logger.Locked(resource, nonce, lockResult);
                 return new Redlock(resource, nonce, implementation, logger);
             }
 
+            logger.UnlockingOnFail(resource, nonce, lockResult);
             implementation.Instances.UnlockAll(logger, resource, nonce);
+            logger.UnlockedOnFail(resource, nonce);
             return null;
         }
+        
+        
 
         /// <summary>
         /// Try acquire distributed lock on all <see cref="IRedlockInstance"/>
@@ -83,15 +89,19 @@ namespace RedLock
             ILogger logger
         )
         {
+            logger.Locking(resource, nonce, lockTimeToLive);
             var lockResult = await implementation.Instances.TryLockAllAsync(logger, resource, nonce, lockTimeToLive)
                 .ConfigureAwait(false);
 
             if (lockResult.IsLocked(lockTimeToLive, implementation))
             {
+                logger.Locked(resource, nonce, lockResult);
                 return new Redlock(resource, nonce, implementation, logger);
             }
 
+            logger.UnlockingOnFail(resource, nonce, lockResult);
             await implementation.Instances.UnlockAllAsync(logger, resource, nonce).ConfigureAwait(false);
+            logger.UnlockedOnFail(resource, nonce);
             return null;
         }
 

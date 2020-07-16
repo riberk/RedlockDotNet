@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using RedLock.Internal;
+using Redlock.Internal;
 using Xunit;
 
 namespace RedLock.Tests.Internal

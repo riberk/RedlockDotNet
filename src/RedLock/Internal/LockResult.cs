@@ -1,6 +1,7 @@
 using System;
+using RedLock;
 
-namespace RedLock
+namespace Redlock.Internal
 {
     internal readonly struct LockResult
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Security.Cryptography;
 
-namespace RedLock.Internal
+namespace Redlock.Internal
 {
     internal static class ThreadSafeRandom
     {
