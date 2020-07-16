@@ -7,7 +7,7 @@ namespace RedLock.Tests
         [Fact]
         public static void TestRepeater()
         {
-            var r = new RedlockNoopRepeater();
+            var r = new NoopRedlockRepeater();
             Assert.False(r.Next());
             Assert.False(r.Next());
             Assert.False(r.Next());
@@ -16,7 +16,7 @@ namespace RedLock.Tests
         [Fact]
         public static void Singleton()
         {
-            Assert.Same(RedlockNoopRepeater.Instance, RedlockNoopRepeater.Instance);
+            Assert.Same(NoopRedlockRepeater.Instance, NoopRedlockRepeater.Instance);
         }
     }
 }

@@ -1,0 +1,50 @@
+version: '2.4'
+
+x-healthcheck-redis: &healthcheck-redis
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+    start_period: 25s
+
+x-redis: &redis
+  image: "redis:6-alpine"
+  <<: *healthcheck-redis
+  restart: 'on-failure'
+  command: [ "redis-server" ]
+
+
+services: 
+
+  redis-1:
+    <<: *redis
+    networks: { default: { ipv4_address: 172.16.231.2 } }
+
+  redis-2:
+    <<: *redis
+    networks: { default: { ipv4_address: 172.16.231.3 } }
+
+  redis-3:
+    <<: *redis
+    networks: { default: { ipv4_address: 172.16.231.4 } }
+
+  redis-4:
+    <<: *redis
+    networks: { default: { ipv4_address: 172.16.231.5 } }
+
+  redis-5:
+    <<: *redis
+    networks: { default: { ipv4_address: 172.16.231.6 } }
+
+  redis-6:
+    <<: *redis
+    networks: { default: { ipv4_address: 172.16.231.7 } }
+
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config: [ { subnet: 172.16.231.0/24 } ]

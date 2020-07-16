@@ -12,8 +12,6 @@ namespace RedLock.Internal
 
         internal static Random Local => _local ??= CreateLocal();
         
-        public static int Next() => Local.Next();
-        
         public static int Next(int maxValue) => Local.Next(maxValue);
 
         private static Random CreateLocal()
