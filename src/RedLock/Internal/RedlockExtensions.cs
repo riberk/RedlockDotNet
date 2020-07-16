@@ -5,8 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using RedLock;
 
-namespace RedLock.Internal
+namespace Redlock.Internal
 {
     internal static class RedlockExtensions
     {
@@ -86,7 +87,7 @@ namespace RedLock.Internal
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Unable to acquire lock [{}]:[{}] on [{}]", resource, nonce, instance);
+                logger.LogError(e, "Unable to acquire lock ['{}'] = '{}' on [{}]", resource, nonce, instance);
                 return false;
             }
         }
@@ -105,7 +106,7 @@ namespace RedLock.Internal
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Unable to acquire lock [{}]:[{}] on [{}]", resource, nonce, instance);
+                logger.LogError(e, "Unable to acquire lock ['{}'] = '{}' on [{}]", resource, nonce, instance);
                 return false;
             }
         }
@@ -123,7 +124,7 @@ namespace RedLock.Internal
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Unable to unlock [{}]:[{}] on [{}]", resource, nonce, instance);
+                logger.LogError(e, "Unable to unlock ['{}'] = '{}' on [{}]", resource, nonce, instance);
             }
         }
 
@@ -140,7 +141,7 @@ namespace RedLock.Internal
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Unable to unlock [{}]:[{}] on [{}]", resource, nonce, instance);
+                logger.LogError(e, "Unable to unlock ['{}'] = '{}' on [{}]", resource, nonce, instance);
             }
         }
     }

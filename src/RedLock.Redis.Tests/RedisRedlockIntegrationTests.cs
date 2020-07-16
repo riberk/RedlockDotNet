@@ -6,35 +6,38 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TestUtils;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace RedLock.Redis.Tests
 {
-    public class RedisRedlockIntegrationTests : RedisTestBase
+    public class RedisRedlockIntegrationTests : RedisTestBase, IDisposable
     {
         private readonly RedisRedlockOptions _opt;
         private readonly RedisRedlockImplementation _5Inst;
         private readonly MemoryLogger _log;
         private readonly RedisRedlockImplementation _noQuorum;
+        private readonly ITestOutputHelper _console;
 
-        public RedisRedlockIntegrationTests(RedisFixture redis) : base(redis)
+        public RedisRedlockIntegrationTests(RedisFixture redis, ITestOutputHelper console) : base(redis)
         {
+            _console = console;
             _opt = new RedisRedlockOptions();
+            _log = new MemoryLogger();
             _5Inst = new RedisRedlockImplementation(new []
             {
-                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Redis3.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Redis4.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Redis5.GetDatabase()), 
+                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), "1", _log),
+                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), "2", _log),
+                new RedisRedlockInstance(() => Redis.Redis3.GetDatabase(), "3", _log),
+                new RedisRedlockInstance(() => Redis.Redis4.GetDatabase(), "4", _log),
+                new RedisRedlockInstance(() => Redis.Redis5.GetDatabase(), "5", _log),
             }, Options.Create(_opt));
             _noQuorum = new RedisRedlockImplementation(new []
             {
-                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Unreachable1.GetDatabase()), 
-                new RedisRedlockInstance(() => Redis.Unreachable2.GetDatabase()), 
+                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), "1", _log),
+                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), "2", _log),
+                new RedisRedlockInstance(() => Redis.Unreachable1.GetDatabase(), "u1", _log),
+                new RedisRedlockInstance(() => Redis.Unreachable2.GetDatabase(), "u2", _log),
             }, Options.Create(_opt));
-            _log = new MemoryLogger();
         }
 
         [Fact]
@@ -115,5 +118,10 @@ namespace RedLock.Redis.Tests
             Assert.NotEmpty(_log.Logs.Where(x => x.Exception != null && x.LogLevel == LogLevel.Error));
         }
 
+        public void Dispose()
+        {
+            _log.Provider.WriteLogs(_console.WriteLine);
+            _log?.Dispose();
+        }
     }
 }

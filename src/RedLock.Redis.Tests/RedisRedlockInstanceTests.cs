@@ -1,17 +1,23 @@
 using System;
 using System.Threading.Tasks;
 using StackExchange.Redis;
+using TestUtils;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace RedLock.Redis.Tests
 {
-    public class RedisRedlockInstanceTests : RedisTestBase
+    public class RedisRedlockInstanceTests : RedisTestBase, IDisposable
     {
+        private readonly ITestOutputHelper _console;
         private readonly RedisRedlockInstance _instance;
+        private readonly MemoryLogger _logger;
 
-        public RedisRedlockInstanceTests(RedisFixture redis) : base(redis)
+        public RedisRedlockInstanceTests(RedisFixture redis, ITestOutputHelper console) : base(redis)
         {
-            _instance = new RedisRedlockInstance(Db);
+            _console = console;
+            _logger = new MemoryLogger();
+            _instance = new RedisRedlockInstance(Db, "i", _logger);
         }
 
         [Fact]
@@ -70,6 +76,11 @@ namespace RedLock.Redis.Tests
         private IDatabase Db()
         {
             return Redis.Redis1.GetDatabase();
+        }
+
+        public void Dispose()
+        {
+            _logger.Provider.WriteLogs(_console.WriteLine);
         }
     }
 }
