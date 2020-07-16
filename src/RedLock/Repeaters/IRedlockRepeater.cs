@@ -1,9 +1,8 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Redlock.Internal;
 
-namespace RedLock
+namespace Redlock.Repeaters
 {
     /// <summary>Repeater for acquire lock (for wait lock)</summary>
     public interface IRedlockRepeater

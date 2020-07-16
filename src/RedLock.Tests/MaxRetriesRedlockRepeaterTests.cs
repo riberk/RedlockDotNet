@@ -1,3 +1,4 @@
+using Redlock.Repeaters;
 using Xunit;
 
 namespace RedLock.Tests

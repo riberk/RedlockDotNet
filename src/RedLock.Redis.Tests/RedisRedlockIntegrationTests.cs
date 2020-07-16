@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Redlock.Repeaters;
 using TestUtils;
 using Xunit;
 using Xunit.Abstractions;

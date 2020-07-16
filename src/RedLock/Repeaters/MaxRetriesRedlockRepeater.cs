@@ -1,4 +1,4 @@
-namespace RedLock
+namespace Redlock.Repeaters
 {
     /// <summary>Max retries repeater</summary>
     public class MaxRetriesRedlockRepeater : IRedlockRepeater
