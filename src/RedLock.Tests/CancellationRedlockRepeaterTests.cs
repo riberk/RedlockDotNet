@@ -1,5 +1,5 @@
 using System.Threading;
-using Redlock.Repeaters;
+using RedLock.Repeaters;
 using Xunit;
 
 namespace RedLock.Tests

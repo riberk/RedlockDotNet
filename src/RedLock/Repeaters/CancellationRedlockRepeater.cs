@@ -1,6 +1,6 @@
 using System.Threading;
 
-namespace Redlock.Repeaters
+namespace RedLock.Repeaters
 {
     /// <summary>Repeater by cancellation token</summary>
     public readonly struct CancellationRedlockRepeater : IRedlockRepeater

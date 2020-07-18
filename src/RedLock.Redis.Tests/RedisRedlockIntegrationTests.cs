@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Redlock.Repeaters;
+using RedLock.Repeaters;
 using TestUtils;
 using Xunit;
 using Xunit.Abstractions;
@@ -44,7 +44,7 @@ namespace RedLock.Redis.Tests
         [Fact]
         public void IntegrationTest()
         {
-            using var l = Redlock.Lock("r", "n", TimeSpan.FromSeconds(10), _5Inst, _log, NoopRedlockRepeater.Instance);
+            using var l = Redlock.Lock("r", "n", TimeSpan.FromSeconds(10), _5Inst, _log, NoopRedlockRepeater.Instance, 50);
         }
 
         [Fact]
@@ -106,9 +106,9 @@ namespace RedLock.Redis.Tests
         [Fact]
         public void TimeoutExpires_ThenNewLockCanBeObtained()
         {
-            using var l1 = Redlock.Lock("r", "n1", TimeSpan.FromSeconds(1), _5Inst, _log, NoopRedlockRepeater.Instance);
+            using var l1 = Redlock.Lock("r", "n1", TimeSpan.FromSeconds(1), _5Inst, _log, NoopRedlockRepeater.Instance, 50);
             Thread.Sleep(1000);
-            using var l2 = Redlock.Lock("r", "n2", TimeSpan.FromSeconds(1), _5Inst, _log, NoopRedlockRepeater.Instance);
+            using var l2 = Redlock.Lock("r", "n2", TimeSpan.FromSeconds(1), _5Inst, _log, NoopRedlockRepeater.Instance, 50);
         }
 
         [Fact]
