@@ -235,7 +235,16 @@ namespace RedLock.Tests
             Assert.Throws<RedlockException>(() => Redlock.Lock("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600));
         }
         
-        
+        [Fact]
+        public void TryLockWithRepeater_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            var l = Redlock.TryLock("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600);
+            Assert.Null(l);
+        }
         
         [Fact]
         public async Task LockWithRepeaterAsync()
@@ -270,6 +279,17 @@ namespace RedLock.Tests
             var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
             repeater.Setup(x => x.Next()).Returns(false);
             await Assert.ThrowsAsync<RedlockException>(() => Redlock.LockAsync("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600));
+        }
+        
+        [Fact]
+        public async Task TryLockWithRepeaterAsync_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            var l = await Redlock.TryLockAsync("r", "n", Ttl, MemoryRedlockImpl.Create(mem), _log, repeater.Object, 600);
+            Assert.Null(l);
         }
 
         private static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)

@@ -133,13 +133,62 @@ namespace RedLock
             int maxWaitMs = 200
         ) where T: IRedlockRepeater
         {
+            var (redlock, attemptCount) = TryLockInternal(
+                resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs
+            );
+            
+            if (redlock != null)
+            {
+                return redlock.Value;
+            }
+
+            throw new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
+        }
+
+
+        /// <summary>
+        /// Try acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
+        /// </summary>
+        /// <param name="resource">Resource name for lock</param>
+        /// <param name="nonce">Random value</param>
+        /// <param name="lockTimeToLive">
+        /// Time to live of acquired lock.
+        /// Attention! If this ttl are expired, code that the lock uses has a safety violation
+        /// </param>
+        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="logger"></param>
+        /// <param name="repeater"></param>
+        /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <typeparam name="T">Type of repeater</typeparam>
+        /// <returns>lock or null if unable to acquire</returns>
+        public static Redlock? TryLock<T>(
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            IRedlockImplementation implementation,
+            ILogger logger,
+            in T repeater,
+            int maxWaitMs = 200
+        ) where T : IRedlockRepeater 
+            => TryLockInternal(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs).redlock;
+        
+        private static (Redlock? redlock, int attemptCount) TryLockInternal<T>(
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            IRedlockImplementation implementation,
+            ILogger logger,
+            in T repeater,
+            int maxWaitMs = 200
+        ) where T: IRedlockRepeater
+        {
             var attemptCount = 0;
             while (true)
             {
                 var @lock = TryLock(resource, nonce, lockTimeToLive, implementation, logger);
                 if (@lock != null)
                 {
-                    return @lock.Value;
+                    return (@lock.Value, attemptCount);
                 }
 
                 attemptCount++;
@@ -149,7 +198,7 @@ namespace RedLock
                 }
                 else
                 {
-                    throw new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
+                    return (null, attemptCount);
                 }
             }
         }
@@ -180,13 +229,59 @@ namespace RedLock
             int maxWaitMs = 200
         ) where T: IRedlockRepeater
         {
+            var (redlock, attemptCount) = await TryLockInternalAsync(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs);
+        
+            if (redlock != null)
+            {
+                return redlock.Value;
+            }
+
+            throw new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
+        }
+        
+        /// <summary>
+        /// Try acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
+        /// </summary>
+        /// <param name="resource">Resource name for lock</param>
+        /// <param name="nonce">Random value</param>
+        /// <param name="lockTimeToLive">
+        /// Time to live of acquired lock.
+        /// Attention! If this ttl are expired, code that the lock uses has a safety violation
+        /// </param>
+        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="logger"></param>
+        /// <param name="repeater"></param>
+        /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <typeparam name="T">Type of repeater</typeparam>
+        /// <returns>lock or null if unable to acquire</returns>
+        public static async Task<Redlock?> TryLockAsync<T>(
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            IRedlockImplementation implementation,
+            ILogger logger,
+            T repeater,
+            int maxWaitMs = 200
+        ) where T: IRedlockRepeater 
+            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs)).redlock;
+
+        private static async Task<(Redlock? redlock, int attemptCount)> TryLockInternalAsync<T>(
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            IRedlockImplementation implementation,
+            ILogger logger,
+            T repeater,
+            int maxWaitMs = 200
+        ) where T: IRedlockRepeater
+        {
             var attemptCount = 0;
             while (true)
             {
                 var @lock = await TryLockAsync(resource, nonce, lockTimeToLive, implementation, logger);
                 if (@lock != null)
                 {
-                    return @lock.Value;
+                    return (@lock.Value, attemptCount);
                 }
                 
                 attemptCount++;
@@ -196,7 +291,7 @@ namespace RedLock
                 }
                 else
                 {
-                    throw new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
+                    return (null, attemptCount);
                 }
             }
         }
