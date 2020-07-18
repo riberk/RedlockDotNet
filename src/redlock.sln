@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedLock", "RedLock\RedLock.csproj", "{C13C1CB0-3F45-496F-A0D2-27E2E721DD49}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedlockDotNet", "RedlockDotNet\RedlockDotNet.csproj", "{C13C1CB0-3F45-496F-A0D2-27E2E721DD49}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedLock.Redis", "RedLock.Redis\RedLock.Redis.csproj", "{C36DD307-CD82-4574-AF5D-FA9F1E540699}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedlockDotNet.Redis", "RedlockDotNet.Redis\RedlockDotNet.Redis.csproj", "{C36DD307-CD82-4574-AF5D-FA9F1E540699}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedLock.Tests", "RedLock.Tests\RedLock.Tests.csproj", "{09D6D206-337A-48A0-A5F1-2CE0F75D4AF3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedlockDotNet.Tests", "RedlockDotNet.Tests\RedlockDotNet.Tests.csproj", "{09D6D206-337A-48A0-A5F1-2CE0F75D4AF3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedLock.Redis.Tests", "RedLock.Redis.Tests\RedLock.Redis.Tests.csproj", "{0389CA19-5497-4651-82DE-6143CB620D7F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedlockDotNet.Redis.Tests", "RedlockDotNet.Redis.Tests\RedlockDotNet.Redis.Tests.csproj", "{0389CA19-5497-4651-82DE-6143CB620D7F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestUtils", "TestUtils\TestUtils.csproj", "{AD423629-99A6-4EEE-B781-65F9FA6D382C}"
 EndProject
