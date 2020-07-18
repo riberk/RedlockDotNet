@@ -1,6 +1,6 @@
 using System;
 using System.Threading.Tasks;
-using RedLock;
+using RedlockDotNet;
 
 namespace TestUtils
 {
