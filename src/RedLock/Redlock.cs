@@ -1,8 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Redlock.Internal;
-using Redlock.Repeaters;
+using RedLock.Internal;
+using RedLock.Repeaters;
 
 namespace RedLock
 {
@@ -11,8 +11,12 @@ namespace RedLock
     /// </summary>
     public readonly struct Redlock : IDisposable, IAsyncDisposable
     {
-        private readonly string _resource;
-        private readonly string _nonce;
+        /// <summary>Locked resource</summary>
+        public string Resource { get; }
+        
+        /// <summary>Resource locked with nonce</summary>
+        public string Nonce { get; }
+        
         private readonly IRedlockImplementation _implementation;
         private readonly ILogger _logger;
 
@@ -26,8 +30,8 @@ namespace RedLock
             ILogger logger
         )
         {
-            _resource = resource;
-            _nonce = nonce;
+            Resource = resource;
+            Nonce = nonce;
             _implementation = implementation;
             _logger = logger;
         }
@@ -36,7 +40,7 @@ namespace RedLock
         /// Try acquire distributed lock on all <see cref="IRedlockInstance"/>
         /// </summary>
         /// <param name="resource">Resource name for lock</param>
-        /// <param name="nonce">Random value</param>
+        /// <param name="nonce">String to identify lock owners</param>
         /// <param name="lockTimeToLive">
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
@@ -74,7 +78,7 @@ namespace RedLock
         /// Try acquire distributed lock on all <see cref="IRedlockInstance"/>
         /// </summary>
         /// <param name="resource">Resource name for lock</param>
-        /// <param name="nonce">Random value</param>
+        /// <param name="nonce">String to identify lock owners</param>
         /// <param name="lockTimeToLive">
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
@@ -111,7 +115,7 @@ namespace RedLock
         /// Acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
         /// </summary>
         /// <param name="resource">Resource name for lock</param>
-        /// <param name="nonce">Random value</param>
+        /// <param name="nonce">String to identify lock owners</param>
         /// <param name="lockTimeToLive">
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
@@ -130,7 +134,7 @@ namespace RedLock
             IRedlockImplementation implementation,
             ILogger logger,
             in T repeater,
-            int maxWaitMs = 200
+            int maxWaitMs
         ) where T: IRedlockRepeater
         {
             var (redlock, attemptCount) = TryLockInternal(
@@ -150,7 +154,7 @@ namespace RedLock
         /// Try acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
         /// </summary>
         /// <param name="resource">Resource name for lock</param>
-        /// <param name="nonce">Random value</param>
+        /// <param name="nonce">String to identify lock owners</param>
         /// <param name="lockTimeToLive">
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
@@ -168,7 +172,7 @@ namespace RedLock
             IRedlockImplementation implementation,
             ILogger logger,
             in T repeater,
-            int maxWaitMs = 200
+            int maxWaitMs
         ) where T : IRedlockRepeater 
             => TryLockInternal(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs).redlock;
         
@@ -179,7 +183,7 @@ namespace RedLock
             IRedlockImplementation implementation,
             ILogger logger,
             in T repeater,
-            int maxWaitMs = 200
+            int maxWaitMs
         ) where T: IRedlockRepeater
         {
             var attemptCount = 0;
@@ -208,7 +212,7 @@ namespace RedLock
         /// Acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
         /// </summary>
         /// <param name="resource">Resource name for lock</param>
-        /// <param name="nonce">Random value</param>
+        /// <param name="nonce">String to identify lock owners</param>
         /// <param name="lockTimeToLive">
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
@@ -226,7 +230,7 @@ namespace RedLock
             IRedlockImplementation implementation,
             ILogger logger,
             T repeater,
-            int maxWaitMs = 200
+            int maxWaitMs
         ) where T: IRedlockRepeater
         {
             var (redlock, attemptCount) = await TryLockInternalAsync(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs);
@@ -243,7 +247,7 @@ namespace RedLock
         /// Try acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
         /// </summary>
         /// <param name="resource">Resource name for lock</param>
-        /// <param name="nonce">Random value</param>
+        /// <param name="nonce">String to identify lock owners</param>
         /// <param name="lockTimeToLive">
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
@@ -261,7 +265,7 @@ namespace RedLock
             IRedlockImplementation implementation,
             ILogger logger,
             T repeater,
-            int maxWaitMs = 200
+            int maxWaitMs
         ) where T: IRedlockRepeater 
             => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs)).redlock;
 
@@ -272,7 +276,7 @@ namespace RedLock
             IRedlockImplementation implementation,
             ILogger logger,
             T repeater,
-            int maxWaitMs = 200
+            int maxWaitMs
         ) where T: IRedlockRepeater
         {
             var attemptCount = 0;
@@ -299,13 +303,13 @@ namespace RedLock
         /// <inheritdoc />
         public void Dispose()
         {
-            _implementation.Instances.UnlockAll(_logger, _resource, _nonce);
+            _implementation.Instances.UnlockAll(_logger, Resource, Nonce);
         }
 
         /// <inheritdoc />
         public async ValueTask DisposeAsync()
         {
-            await _implementation.Instances.UnlockAllAsync(_logger, _resource, _nonce).ConfigureAwait(false);
+            await _implementation.Instances.UnlockAllAsync(_logger, Resource, Nonce).ConfigureAwait(false);
         }
     }
 }

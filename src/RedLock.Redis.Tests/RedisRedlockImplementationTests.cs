@@ -1,8 +1,6 @@
 using System;
 using Microsoft.Extensions.Options;
 using Moq;
-using RedLock;
-using RedLock.Redis;
 using Xunit;
 
 namespace RedLock.Redis.Tests

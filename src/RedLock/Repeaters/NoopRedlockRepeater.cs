@@ -1,4 +1,4 @@
-namespace Redlock.Repeaters
+namespace RedLock.Repeaters
 {
     /// <summary>Noop repeater</summary>
     public class NoopRedlockRepeater : IRedlockRepeater

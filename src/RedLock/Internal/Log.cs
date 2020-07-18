@@ -1,7 +1,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 
-namespace Redlock.Internal
+namespace RedLock.Internal
 {
     internal static class Log
     {
