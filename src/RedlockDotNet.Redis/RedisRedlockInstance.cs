@@ -12,6 +12,7 @@ namespace RedlockDotNet.Redis
     public sealed class RedisRedlockInstance : IRedlockInstance
     {
         internal readonly Func<IDatabase> SelectDb;
+        private readonly Func<string, string> _createKeyFromResourceName;
         private readonly string _name;
         private readonly ILogger _logger;
 
@@ -29,11 +30,13 @@ end
         /// </summary>
         public RedisRedlockInstance(
             Func<IDatabase> selectDb,
+            Func<string, string> createKeyFromResourceName, 
             string name,
             ILogger logger
         )
         {
             SelectDb = selectDb;
+            _createKeyFromResourceName = createKeyFromResourceName;
             _name = name;
             _logger = logger;
         }
@@ -79,7 +82,7 @@ end
         /// <summary>
         /// Build key for redis from resource name
         /// </summary>
-        private string Key(string resource) => resource;
+        private string Key(string resource) => _createKeyFromResourceName(resource);
 
         /// <inheritdoc />
         public override string ToString() => _name;
@@ -88,12 +91,18 @@ end
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
         /// </summary>
         /// <param name="con"></param>
+        /// <param name="createKeyFromResourceName"></param>
         /// <param name="database">Number of the database where the locks will be stored</param>
         /// <param name="name">Instance name for logs and ToString</param>
         /// <param name="logger"></param>
         /// <returns></returns>
-        public static IRedlockInstance Create(IConnectionMultiplexer con, int database, string name, ILogger logger) 
-            => new RedisRedlockInstance(() => con.GetDatabase(database), name, logger);
+        public static IRedlockInstance Create(
+            IConnectionMultiplexer con,
+            Func<string, string> createKeyFromResourceName,
+            int database,
+            string name,
+            ILogger logger
+        ) => new RedisRedlockInstance(() => con.GetDatabase(database), createKeyFromResourceName, name, logger);
 
         /// <summary>
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
@@ -102,11 +111,16 @@ end
         /// Name of instance sets to first connection endpoint ToString
         /// </remarks>
         /// <param name="con"></param>
+        /// <param name="createKeyFromResourceName"></param>
         /// <param name="database">Number of the database where the locks will be stored</param>
         /// <param name="logger"></param>
         /// <returns></returns>
-        public static IRedlockInstance Create(IConnectionMultiplexer con, int database, ILogger logger) 
-            => Create(con, database, GetName(con), logger);
+        public static IRedlockInstance Create(
+            IConnectionMultiplexer con,
+            Func<string, string> createKeyFromResourceName,
+            int database, 
+            ILogger logger
+        ) => Create(con, createKeyFromResourceName, database, GetName(con), logger);
 
         /// <summary>
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
@@ -115,11 +129,16 @@ end
         /// Database sets to default (<see cref="ConnectionMultiplexer.GetDatabase"/>)
         /// </remarks>
         /// <param name="con"></param>
+        /// <param name="createKeyFromResourceName"></param>
         /// <param name="name">Instance name for logs and ToString</param>
         /// <param name="logger"></param>
         /// <returns></returns>
-        public static IRedlockInstance Create(IConnectionMultiplexer con, string name, ILogger logger) 
-            => new RedisRedlockInstance(() => con.GetDatabase(), name, logger);
+        public static IRedlockInstance Create(
+            IConnectionMultiplexer con,
+            Func<string, string> createKeyFromResourceName,
+            string name,
+            ILogger logger
+        ) => new RedisRedlockInstance(() => con.GetDatabase(), createKeyFromResourceName, name, logger);
 
         /// <summary>
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
@@ -131,9 +150,14 @@ end
         /// Database sets to default (<see cref="ConnectionMultiplexer.GetDatabase"/>)
         /// </remarks>
         /// <param name="con"></param>
+        /// <param name="createKeyFromResourceName"></param>
         /// <param name="logger"></param>
         /// <returns></returns>
-        public static IRedlockInstance Create(IConnectionMultiplexer con, ILogger logger) => Create(con, GetName(con), logger);
+        public static IRedlockInstance Create(
+            IConnectionMultiplexer con,
+            Func<string, string> createKeyFromResourceName,
+            ILogger logger
+        ) => Create(con, createKeyFromResourceName, GetName(con), logger);
         
         private static string GetName(IConnectionMultiplexer con) => con.GetEndPoints().FirstOrDefault()?.ToString() ?? "NO_ENDPOINT";
     }

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using RedlockDotNet.Repeaters;
 using Xunit;
@@ -33,6 +34,19 @@ namespace RedlockDotNet
             Assert.True(r.Next());
             cts.Cancel();
             Assert.False(r.Next());
+        }
+
+        [Fact]
+        public static void CreateException()
+        {
+            using var cts = new CancellationTokenSource();
+            var r = new CancellationRedlockRepeater(cts.Token);
+            var exception = r.CreateException("rrrr", "nnnnn", 10000);
+            var oce = Assert.IsType<OperationCanceledException>(exception);
+            Assert.Equal(cts.Token, oce.CancellationToken);
+            Assert.Contains("rrrr", oce.Message);
+            Assert.Contains("nnnnn", oce.Message);
+            Assert.Contains("10000", oce.Message);
         }
     }
 }

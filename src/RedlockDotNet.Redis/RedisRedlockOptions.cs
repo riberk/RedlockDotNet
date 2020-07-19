@@ -1,3 +1,5 @@
+using System;
+
 namespace RedlockDotNet.Redis
 {
     /// <summary>
@@ -9,5 +11,8 @@ namespace RedlockDotNet.Redis
         /// Drift factor for system clock (multiply with ttl of lock)
         /// </summary>
         public float ClockDriftFactor { get; set; } = 0.01f;
+
+        /// <summary>Creates redis key from name of locking resource</summary>
+        public Func<string, string> RedisKeyFromResourceName { get; set; } = k => k;
     }
 }

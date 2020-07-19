@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using RedlockDotNet.Internal;
@@ -19,5 +20,11 @@ namespace RedlockDotNet.Repeaters
         /// <param name="cancellationToken"></param>
         public async ValueTask WaitRandomAsync(int maxWaitMs, CancellationToken cancellationToken = default) 
             => await Task.Delay(ThreadSafeRandom.Next(maxWaitMs), cancellationToken);
+        
+        /// <summary>
+        /// Create exception if obtain lock failed
+        /// </summary>
+        public Exception CreateException(string resource, string nonce, int attemptCount)
+            => new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
     }
 }

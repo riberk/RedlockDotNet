@@ -17,7 +17,7 @@ namespace RedlockDotNet.Redis.Tests
         {
             _console = console;
             _logger = new MemoryLogger();
-            _instance = new RedisRedlockInstance(Db, "i", _logger);
+            _instance = new RedisRedlockInstance(Db, s => s, "i", _logger);
         }
 
         [Fact]

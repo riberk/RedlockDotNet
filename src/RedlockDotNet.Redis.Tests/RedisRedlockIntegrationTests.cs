@@ -13,7 +13,6 @@ namespace RedlockDotNet.Redis.Tests
 {
     public class RedisRedlockIntegrationTests : RedisTestBase, IDisposable
     {
-        private readonly RedisRedlockOptions _opt;
         private readonly RedisRedlockImplementation _5Inst;
         private readonly MemoryLogger _log;
         private readonly RedisRedlockImplementation _noQuorum;
@@ -22,23 +21,23 @@ namespace RedlockDotNet.Redis.Tests
         public RedisRedlockIntegrationTests(RedisFixture redis, ITestOutputHelper console) : base(redis)
         {
             _console = console;
-            _opt = new RedisRedlockOptions();
+            var opt = new RedisRedlockOptions();
             _log = new MemoryLogger();
             _5Inst = new RedisRedlockImplementation(new []
             {
-                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), "1", _log),
-                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), "2", _log),
-                new RedisRedlockInstance(() => Redis.Redis3.GetDatabase(), "3", _log),
-                new RedisRedlockInstance(() => Redis.Redis4.GetDatabase(), "4", _log),
-                new RedisRedlockInstance(() => Redis.Redis5.GetDatabase(), "5", _log),
-            }, Options.Create(_opt));
+                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), s => s, "1", _log),
+                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), s => s, "2", _log),
+                new RedisRedlockInstance(() => Redis.Redis3.GetDatabase(), s => s, "3", _log),
+                new RedisRedlockInstance(() => Redis.Redis4.GetDatabase(), s => s, "4", _log),
+                new RedisRedlockInstance(() => Redis.Redis5.GetDatabase(), s => s, "5", _log),
+            }, Options.Create(opt));
             _noQuorum = new RedisRedlockImplementation(new []
             {
-                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), "1", _log),
-                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), "2", _log),
-                new RedisRedlockInstance(() => Redis.Unreachable1.GetDatabase(), "u1", _log),
-                new RedisRedlockInstance(() => Redis.Unreachable2.GetDatabase(), "u2", _log),
-            }, Options.Create(_opt));
+                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), s => s, "1", _log),
+                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), s => s, "2", _log),
+                new RedisRedlockInstance(() => Redis.Unreachable1.GetDatabase(), s => s, "u1", _log),
+                new RedisRedlockInstance(() => Redis.Unreachable2.GetDatabase(), s => s, "u2", _log),
+            }, Options.Create(opt));
         }
 
         [Fact]
