@@ -17,6 +17,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/riberk/RedlockDotNet.git</RepositoryUrl>
     <PackageTags>distributed lock redis redlock</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="2.1.58" />
