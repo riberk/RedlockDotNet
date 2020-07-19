@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -8,9 +9,9 @@ namespace RedlockDotNet.Redis
     /// <summary>
     /// Redis instance for distributed lock
     /// </summary>
-    public class RedisRedlockInstance : IRedlockInstance
+    public sealed class RedisRedlockInstance : IRedlockInstance
     {
-        private readonly Func<IDatabase> _selectDb;
+        internal readonly Func<IDatabase> SelectDb;
         private readonly string _name;
         private readonly ILogger _logger;
 
@@ -32,7 +33,7 @@ end
             ILogger logger
         )
         {
-            _selectDb = selectDb;
+            SelectDb = selectDb;
             _name = name;
             _logger = logger;
         }
@@ -43,7 +44,7 @@ end
         {
             var key = Key(resource);
             _logger.TryLock(resource, nonce, _name, lockTimeToLive, key);
-            return _selectDb().StringSet(key, nonce, lockTimeToLive, When.NotExists, CommandFlags.DemandMaster);
+            return SelectDb().StringSet(key, nonce, lockTimeToLive, When.NotExists, CommandFlags.DemandMaster);
         }
 
         /// <inheritdoc />
@@ -51,7 +52,7 @@ end
         {
             var key = Key(resource);
             _logger.TryLock(resource, nonce, _name, lockTimeToLive, key);
-            return _selectDb().StringSetAsync(key, nonce, lockTimeToLive, When.NotExists, CommandFlags.DemandMaster);
+            return SelectDb().StringSetAsync(key, nonce, lockTimeToLive, When.NotExists, CommandFlags.DemandMaster);
         }
 
         /// <inheritdoc />
@@ -59,7 +60,7 @@ end
         {
             var key = Key(resource);
             _logger.Unlocking(resource, nonce, _name, key);
-            var res = (bool) _selectDb()
+            var res = (bool) SelectDb()
                 .ScriptEvaluate(UnlockLua, new RedisKey[] {key}, new RedisValue[] {nonce}, CommandFlags.DemandMaster);
             _logger.Unlocked(resource, nonce, _name, key, res);
         }
@@ -69,7 +70,7 @@ end
         {
             var key = Key(resource);
             _logger.Unlocking(resource, nonce, _name, key);
-            var res = (bool) await _selectDb()
+            var res = (bool) await SelectDb()
                 .ScriptEvaluateAsync(UnlockLua, new RedisKey[] {key}, new RedisValue[] {nonce}, CommandFlags.DemandMaster)
                 .ConfigureAwait(false);
             _logger.Unlocked(resource, nonce, _name, key, res);
@@ -78,15 +79,62 @@ end
         /// <summary>
         /// Build key for redis from resource name
         /// </summary>
-        protected virtual string Key(string resource)
-        {
-            return resource;
-        }
+        private string Key(string resource) => resource;
 
         /// <inheritdoc />
-        public override string ToString()
-        {
-            return _name;
-        }
+        public override string ToString() => _name;
+
+        /// <summary>
+        /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="database">Number of the database where the locks will be stored</param>
+        /// <param name="name">Instance name for logs and ToString</param>
+        /// <param name="logger"></param>
+        /// <returns></returns>
+        public static IRedlockInstance Create(IConnectionMultiplexer con, int database, string name, ILogger logger) 
+            => new RedisRedlockInstance(() => con.GetDatabase(database), name, logger);
+
+        /// <summary>
+        /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
+        /// </summary>
+        /// <remarks>
+        /// Name of instance sets to first connection endpoint ToString
+        /// </remarks>
+        /// <param name="con"></param>
+        /// <param name="database">Number of the database where the locks will be stored</param>
+        /// <param name="logger"></param>
+        /// <returns></returns>
+        public static IRedlockInstance Create(IConnectionMultiplexer con, int database, ILogger logger) 
+            => Create(con, database, GetName(con), logger);
+
+        /// <summary>
+        /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
+        /// </summary>
+        /// <remarks>
+        /// Database sets to default (<see cref="ConnectionMultiplexer.GetDatabase"/>)
+        /// </remarks>
+        /// <param name="con"></param>
+        /// <param name="name">Instance name for logs and ToString</param>
+        /// <param name="logger"></param>
+        /// <returns></returns>
+        public static IRedlockInstance Create(IConnectionMultiplexer con, string name, ILogger logger) 
+            => new RedisRedlockInstance(() => con.GetDatabase(), name, logger);
+
+        /// <summary>
+        /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
+        /// </summary>
+        /// <remarks>
+        /// Name of instance sets to first connection endpoint ToString
+        /// </remarks>
+        /// <remarks>
+        /// Database sets to default (<see cref="ConnectionMultiplexer.GetDatabase"/>)
+        /// </remarks>
+        /// <param name="con"></param>
+        /// <param name="logger"></param>
+        /// <returns></returns>
+        public static IRedlockInstance Create(IConnectionMultiplexer con, ILogger logger) => Create(con, GetName(con), logger);
+        
+        private static string GetName(IConnectionMultiplexer con) => con.GetEndPoints().FirstOrDefault()?.ToString() ?? "NO_ENDPOINT";
     }
 }
