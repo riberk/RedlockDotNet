@@ -14,6 +14,9 @@
     <DocumentationFile>bin\$(AssemblyName).xml</DocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>RedlockDotNet</RootNamespace>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/riberk/RedlockDotNet.git</RepositoryUrl>
+    <PackageTags>distributed lock redis redlock</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />

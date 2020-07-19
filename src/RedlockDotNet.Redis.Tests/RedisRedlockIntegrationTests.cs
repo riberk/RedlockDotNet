@@ -51,9 +51,9 @@ namespace RedlockDotNet.Redis.Tests
         public void MultiThread_NoOverlaps()
         {
             const string resource = nameof(MultiThread_NoOverlaps);
-            var threads = new Thread[32];
+            var threads = new Thread[16];
             var threadWaitMs = 100;
-            using var cts = new CancellationTokenSource(threads.Length * threadWaitMs + 15000);
+            using var cts = new CancellationTokenSource(threads.Length * threadWaitMs + 75000);
             var repeater = new CancellationRedlockRepeater(cts.Token);
             var locksCount = 0;
             var exceptions = new ConcurrentBag<Exception>();

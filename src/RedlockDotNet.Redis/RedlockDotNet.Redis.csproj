@@ -14,6 +14,9 @@
     <DocumentationFile>bin\$(AssemblyName).xml</DocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>RedlockDotNet.Redis</RootNamespace>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/riberk/RedlockDotNet.git</RepositoryUrl>
+    <PackageTags>distributed lock redis redlock</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="2.1.58" />
