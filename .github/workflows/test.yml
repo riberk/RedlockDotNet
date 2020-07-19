@@ -1,0 +1,34 @@
+name: Test project
+
+on: [ push ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/core/sdk:3.1.302-alpine3.12
+    services:
+      redis1:
+        image: redis:6-alpine
+      redis2:
+        image: redis:6-alpine
+      redis3:
+        image: redis:6-alpine
+      redis4:
+        image: redis:6-alpine
+      redis5:
+        image: redis:6-alpine
+      redis6:
+        image: redis:6-alpine
+    steps:
+    - uses: actions/checkout@v2
+    - name: test
+      run: dotnet test
+      working-directory: src
+      env:
+        REDLOCK_ConnectionStrings__redis1: redis1:6379,connectTimeout=500,syncTimeout=5000,abortConnect=false,allowAdmin=true
+        REDLOCK_ConnectionStrings__redis2: redis2:6379,connectTimeout=500,syncTimeout=5000,abortConnect=false,allowAdmin=true
+        REDLOCK_ConnectionStrings__redis3: redis3:6379,connectTimeout=500,syncTimeout=5000,abortConnect=false,allowAdmin=true
+        REDLOCK_ConnectionStrings__redis4: redis4:6379,connectTimeout=500,syncTimeout=5000,abortConnect=false,allowAdmin=true
+        REDLOCK_ConnectionStrings__redis5: redis5:6379,connectTimeout=500,syncTimeout=5000,abortConnect=false,allowAdmin=true
+        REDLOCK_ConnectionStrings__redis6: redis6:6379,connectTimeout=500,syncTimeout=5000,abortConnect=false,allowAdmin=true
