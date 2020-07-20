@@ -146,7 +146,7 @@ namespace RedlockDotNet
                 return redlock.Value;
             }
 
-            throw new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
+            throw repeater.CreateException(resource, nonce, attemptCount);
         }
 
 
@@ -240,7 +240,7 @@ namespace RedlockDotNet
                 return redlock.Value;
             }
 
-            throw new RedlockException($"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts");
+            throw repeater.CreateException(resource, nonce, attemptCount);
         }
         
         /// <summary>

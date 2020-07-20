@@ -230,7 +230,10 @@ namespace RedlockDotNet
             Lock("r", "n2", mem);
             var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
             repeater.Setup(x => x.Next()).Returns(false);
-            Assert.Throws<RedlockException>(() => Redlock.Lock("r", "n", Ttl, TestRedlockImpl.Create(mem), _log, repeater.Object, 600));
+            var expected = new Exception();
+            repeater.Setup(x => x.CreateException("r", "n", 1)).Returns(expected);
+            var actual = Assert.Throws<Exception>(() => Redlock.Lock("r", "n", Ttl, TestRedlockImpl.Create(mem), _log, repeater.Object, 600));
+            Assert.Same(expected, actual);
         }
         
         [Fact]
@@ -276,7 +279,10 @@ namespace RedlockDotNet
             Lock("r", "n2", mem);
             var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
             repeater.Setup(x => x.Next()).Returns(false);
-            await Assert.ThrowsAsync<RedlockException>(() => Redlock.LockAsync("r", "n", Ttl, TestRedlockImpl.Create(mem), _log, repeater.Object, 600));
+            var expected = new Exception();
+            repeater.Setup(x => x.CreateException("r", "n", 1)).Returns(expected);
+            var actual = await Assert.ThrowsAsync<Exception>(() => Redlock.LockAsync("r", "n", Ttl, TestRedlockImpl.Create(mem), _log, repeater.Object, 600));
+            Assert.Same(expected, actual);
         }
         
         [Fact]

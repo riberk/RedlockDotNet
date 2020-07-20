@@ -2,12 +2,13 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace RedlockDotNet.Redis
 {
     /// <summary>Extensions on <see cref="IServiceCollection"/></summary>
-    public static class RedlockRedisServiceollectionExtensions
+    public static class RedlockRedisServiceCollectionExtensions
     {
         private class RedisRedlockBuilder : IRedisRedlockBuilder
         {
@@ -52,12 +53,18 @@ namespace RedlockDotNet.Redis
         /// <param name="database">Database number on instance</param>
         /// <param name="name">Instance name (ToString and logs)</param>
         /// <returns></returns>
-        public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, Func<IConnectionMultiplexer> connect, int database, string name)
+        public static IRedisRedlockBuilder AddInstance(
+            this IRedisRedlockBuilder b,
+            Func<IConnectionMultiplexer> connect,
+            int database,
+            string name
+        )
         {
             b.Services.AddSingleton(p =>
             {
                 var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
-                return RedisRedlockInstance.Create(connect(), database, name, logger);
+                var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
+                return RedisRedlockInstance.Create(connect(), key, database, name, logger);
             });
             return b;
         }
@@ -74,7 +81,8 @@ namespace RedlockDotNet.Redis
             b.Services.AddSingleton(p =>
             {
                 var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
-                return RedisRedlockInstance.Create(connect(), database, logger);
+                var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
+                return RedisRedlockInstance.Create(connect(), key, database, logger);
             });
             return b;
         }
@@ -91,7 +99,8 @@ namespace RedlockDotNet.Redis
             b.Services.AddSingleton(p =>
             {
                 var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
-                return RedisRedlockInstance.Create(connect(), name, logger);
+                var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
+                return RedisRedlockInstance.Create(connect(), key, name, logger);
             });
             return b;
         }
@@ -107,7 +116,8 @@ namespace RedlockDotNet.Redis
             b.Services.AddSingleton(p =>
             {
                 var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
-                return RedisRedlockInstance.Create(connect(), logger);
+                var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
+                return RedisRedlockInstance.Create(connect(), key, logger);
             });
             return b;
         }

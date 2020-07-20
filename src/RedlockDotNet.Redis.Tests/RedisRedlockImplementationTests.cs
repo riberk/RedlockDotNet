@@ -34,6 +34,14 @@ namespace RedlockDotNet.Redis.Tests
             var minValidity = _impl.MinValidity(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
             Assert.Equal(TimeSpan.FromMilliseconds(8898), minValidity);
         }
+        
+        [Fact]
+        public void MinValidity_ClockDriftFactor03()
+        {
+            _opt.ClockDriftFactor = 0.5f;
+            var minValidity = _impl.MinValidity(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
+            Assert.Equal(TimeSpan.FromMilliseconds(3998), minValidity);
+        }
 
         [Fact]
         public void Instances()

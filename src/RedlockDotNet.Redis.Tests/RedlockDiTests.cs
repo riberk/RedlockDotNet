@@ -30,6 +30,10 @@ namespace RedlockDotNet.Redis.Tests
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis1"), "1");
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis2"), "2");
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis3"), "3");
+            }, opt =>
+            {
+                opt.ClockDriftFactor = 0.3f;
+                opt.RedisKeyFromResourceName = resource => $"locks_{resource}";
             });
         }
 
@@ -49,14 +53,14 @@ namespace RedlockDotNet.Redis.Tests
             var f = _services.BuildServiceProvider().GetRequiredService<IRedlockFactory>();
             using (var l = f.Create("r"))
             {
-                Assert.Equal(l.Nonce, Redis.Redis1.GetDatabase().StringGet("r"));
-                Assert.Equal(l.Nonce, Redis.Redis2.GetDatabase().StringGet("r"));
-                Assert.Equal(l.Nonce, Redis.Redis3.GetDatabase().StringGet("r"));
+                Assert.Equal(l.Nonce, Redis.Redis1.GetDatabase().StringGet("locks_r"));
+                Assert.Equal(l.Nonce, Redis.Redis2.GetDatabase().StringGet("locks_r"));
+                Assert.Equal(l.Nonce, Redis.Redis3.GetDatabase().StringGet("locks_r"));
             }
 
-            Assert.False(Redis.Redis1.GetDatabase().KeyExists("r"));
-            Assert.False(Redis.Redis2.GetDatabase().KeyExists("r"));
-            Assert.False(Redis.Redis3.GetDatabase().KeyExists("r"));
+            Assert.False(Redis.Redis1.GetDatabase().KeyExists("locks_r"));
+            Assert.False(Redis.Redis2.GetDatabase().KeyExists("locks_r"));
+            Assert.False(Redis.Redis3.GetDatabase().KeyExists("locks_r"));
         }
 
         [Fact]

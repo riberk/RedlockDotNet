@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 
 namespace RedlockDotNet.Repeaters
@@ -16,9 +17,15 @@ namespace RedlockDotNet.Repeaters
         }
 
         /// <inheritdoc />
-        public bool Next()
+        public bool Next() => !_cancellationToken.IsCancellationRequested;
+
+        /// <inheritdoc />
+        public Exception CreateException(string resource, string nonce, int attemptCount)
         {
-            return !_cancellationToken.IsCancellationRequested;
+            return new OperationCanceledException(
+                $"Unable to obtain lock to ['{resource}'] = '{nonce}' on {attemptCount} attempts - operation canceled",
+                _cancellationToken
+            );
         }
     }
 }
