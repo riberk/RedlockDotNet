@@ -296,6 +296,18 @@ namespace RedlockDotNet
             Assert.Null(l);
         }
 
+        [Fact]
+        public static void DisposeDefaultStruct()
+        {
+            new Redlock().Dispose();
+        }
+        
+        [Fact]
+        public static async Task DisposeAsyncDefaultStruct()
+        {
+            await new Redlock().DisposeAsync();
+        }
+
         private static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)
             => MemoryRedlockInstance.Lock(key, nonce, instances);
         

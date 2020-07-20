@@ -303,12 +303,16 @@ namespace RedlockDotNet
         /// <inheritdoc />
         public void Dispose()
         {
-            _implementation.Instances.UnlockAll(_logger, Resource, Nonce);
+            _implementation?.Instances.UnlockAll(_logger, Resource, Nonce);
         }
 
         /// <inheritdoc />
         public async ValueTask DisposeAsync()
         {
+            if (_implementation == null)
+            {
+                return;
+            }
             await _implementation.Instances.UnlockAllAsync(_logger, Resource, Nonce).ConfigureAwait(false);
         }
     }
