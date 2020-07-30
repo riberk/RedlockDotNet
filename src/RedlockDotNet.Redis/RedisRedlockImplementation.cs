@@ -10,7 +10,7 @@ namespace RedlockDotNet.Redis
     /// </summary>
     public class RedisRedlockImplementation : IRedlockImplementation
     {
-        private readonly IOptions<RedisRedlockOptions> _options;
+        private readonly IOptions<RedlockOptions> _redlockOptions;
         private static readonly TimeSpan RedisResolution = TimeSpan.FromMilliseconds(2);
 
         /// <summary>
@@ -18,7 +18,7 @@ namespace RedlockDotNet.Redis
         /// </summary>
         public RedisRedlockImplementation(
             IEnumerable<IRedlockInstance> instances,
-            IOptions<RedisRedlockOptions> options
+            IOptions<RedlockOptions> redlockOptions
         )
         {
             Instances = instances.ToImmutableArray();
@@ -26,13 +26,13 @@ namespace RedlockDotNet.Redis
             {
                 throw new ArgumentException($"{nameof(instances)} must not be an empty collection", nameof(instances));
             }
-            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _redlockOptions = redlockOptions;
         }
         
         /// <inheritdoc />
         public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration)
         {
-            var drift = lockTimeToLive * _options.Value.ClockDriftFactor;
+            var drift = lockTimeToLive * _redlockOptions.Value.ClockDriftFactor;
             return lockTimeToLive - lockingDuration - drift - RedisResolution;
         }
 

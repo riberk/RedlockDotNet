@@ -75,7 +75,7 @@ namespace RedlockDotNet
 
         private Redlock MockLock()
         {
-            return new Redlock("a", "aa", _impl, NullLogger.Instance);
+            return new Redlock("a", "aa", DateTime.UtcNow, _impl, NullLogger.Instance);
         }
     }
 }

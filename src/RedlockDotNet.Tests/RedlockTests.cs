@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,11 +11,13 @@ using Xunit;
 
 namespace RedlockDotNet
 {
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public class RedlockTests
     {
         private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(1);
         
         private readonly MemoryLogger _log = new MemoryLogger();
+        private readonly DateTime _now = DateTime.UtcNow;
 
         [Fact]
         public void TryLock()
@@ -31,7 +34,7 @@ namespace RedlockDotNet
         public void Dispose()
         {
             var instances = MemInstances(3);
-            var l = new Redlock("r", "n", TestRedlockImpl.Create(instances), _log);
+            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(instances), _log);
             Lock("r", "n", instances);
             
             l.Dispose();
@@ -54,7 +57,7 @@ namespace RedlockDotNet
         public async Task DisposeAsync()
         {
             var instances = MemInstances(3);
-            var l = new Redlock("r", "n", TestRedlockImpl.Create(instances), _log);
+            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(instances), _log);
             Lock("r", "n", instances);
             
             await l.DisposeAsync();
@@ -169,7 +172,7 @@ namespace RedlockDotNet
         {
             var mem = MemInstances(3);
             var err = ErrInstances(2);
-            var l = new Redlock("r", "n", TestRedlockImpl.Create(mem, err), _log);
+            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(mem, err), _log);
             Lock("r", "n", mem);
             
             l.Dispose();
@@ -186,7 +189,7 @@ namespace RedlockDotNet
         {
             var mem = MemInstances(3);
             var err = ErrInstances(2);
-            var l = new Redlock("r", "n", TestRedlockImpl.Create(mem, err), _log);
+            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(mem, err), _log);
             Lock("r", "n", mem);
             
             await l.DisposeAsync();
@@ -297,15 +300,20 @@ namespace RedlockDotNet
         }
 
         [Fact]
-        public static void DisposeDefaultStruct()
-        {
-            new Redlock().Dispose();
-        }
-        
+        public static void DisposeDefaultStruct() => new Redlock().Dispose();
+
         [Fact]
-        public static async Task DisposeAsyncDefaultStruct()
+        public static async Task DisposeAsyncDefaultStruct() => await new Redlock().DisposeAsync();
+
+        [Fact]
+        public void TryLock_ValidUntil()
         {
-            await new Redlock().DisposeAsync();
+            var mem = MemInstances(3);
+            var impl = TestRedlockImpl.Create(mem, (ttl, duration) => TimeSpan.FromSeconds(10));
+            var now = new DateTime(2020, 7, 21, 13, 00, 00, DateTimeKind.Utc);
+            var l = Redlock.TryLock("r", "n", Ttl, impl, _log, () => now);
+            Assert.NotNull(l);
+            Assert.Equal(new DateTime(2020, 7, 21, 13, 00, 10, DateTimeKind.Utc), l!.Value.ValidUntilUtc);
         }
 
         private static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)

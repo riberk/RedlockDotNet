@@ -8,29 +8,38 @@ namespace TestUtils
 {
     public class TestRedlockImpl : IRedlockImplementation
     {
-        public TestRedlockImpl(ImmutableArray<IRedlockInstance> instances)
+        public delegate TimeSpan MinValidityDelegate(TimeSpan lockTimeToLive, TimeSpan lockingDuration);
+
+        private readonly MinValidityDelegate _minValidity;
+
+        public TestRedlockImpl(
+            ImmutableArray<IRedlockInstance> instances,
+            MinValidityDelegate minValidity
+        )
         {
+            _minValidity = minValidity;
             Instances = instances;
         }
 
-        public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration)
-        {
-            return lockTimeToLive - lockingDuration - lockTimeToLive * 0.01;
-        }
+        public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration) => _minValidity(lockTimeToLive, lockingDuration);
 
         public ImmutableArray<IRedlockInstance> Instances { get; }
 
         public static TestRedlockImpl Create<T>(IEnumerable<T> instances)
+            where T : IRedlockInstance => Create(instances, (ttl, duration) => ttl - duration);
+        
+        public static TestRedlockImpl Create<T>(IEnumerable<T> instances, MinValidityDelegate minValidity)
             where T: IRedlockInstance
         {
-            return new TestRedlockImpl(instances.Cast<IRedlockInstance>().ToImmutableArray());
+            return new TestRedlockImpl(instances.Cast<IRedlockInstance>().ToImmutableArray(), minValidity);
         }
-            
-        public static TestRedlockImpl Create(params IEnumerable<IRedlockInstance>[] instances)
-        {
-            return new TestRedlockImpl(instances.SelectMany(s => s).ToImmutableArray());
-        }
+
+        public static TestRedlockImpl Create(params IEnumerable<IRedlockInstance>[] instances) 
+            => Create<IRedlockInstance>(instances.SelectMany(s => s));
         
+        public static TestRedlockImpl Create(MinValidityDelegate minValidity, params IEnumerable<IRedlockInstance>[] instances) 
+            => Create(instances.SelectMany(s => s), minValidity);
+
         public static T[] CreateInstances<T>(int count, Func<T> create)
         {
             var arr = new T[count];

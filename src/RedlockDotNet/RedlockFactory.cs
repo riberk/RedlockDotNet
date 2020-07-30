@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RedlockDotNet.Repeaters;
 
 namespace RedlockDotNet
@@ -9,41 +10,44 @@ namespace RedlockDotNet
     public class RedlockFactory : IRedlockFactory
     {
         private readonly IRedlockImplementation _impl;
+        private readonly IOptions<RedlockOptions> _opt;
         private readonly ILogger<RedlockFactory> _logger;
 
         /// <summary><see cref="Redlock"/> factory</summary>
         public RedlockFactory(
             IRedlockImplementation impl,
+            IOptions<RedlockOptions> opt,
             ILogger<RedlockFactory> logger
         )
         {
             _impl = impl;
+            _opt = opt;
             _logger = logger;
         }
 
         /// <inheritdoc />
         public Redlock? TryCreate(string resource, TimeSpan lockTimeToLive) 
-            => Redlock.TryLock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger);
+            => Redlock.TryLock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, _opt.Value.UtcNow);
 
         /// <inheritdoc />
         public Redlock? TryCreate<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs) 
-            where T : IRedlockRepeater => Redlock.TryLock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, repeater, maxWaitMs);
+            where T : IRedlockRepeater => Redlock.TryLock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, repeater, maxWaitMs, _opt.Value.UtcNow);
 
         /// <inheritdoc />
         public Redlock Create<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs) 
-            where T : IRedlockRepeater => Redlock.Lock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, repeater, maxWaitMs);
+            where T : IRedlockRepeater => Redlock.Lock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, repeater, maxWaitMs, _opt.Value.UtcNow);
 
         /// <inheritdoc />
         public Task<Redlock?> TryCreateAsync(string resource, TimeSpan lockTimeToLive) 
-            => Redlock.TryLockAsync(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger);
+            => Redlock.TryLockAsync(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, _opt.Value.UtcNow);
 
         /// <inheritdoc />
         public Task<Redlock?> TryCreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
-            where T : IRedlockRepeater => Redlock.TryLockAsync(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger);
+            where T : IRedlockRepeater => Redlock.TryLockAsync(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, _opt.Value.UtcNow);
 
         /// <inheritdoc />
         public Task<Redlock> CreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
-            where T : IRedlockRepeater => Redlock.LockAsync(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, repeater, maxWaitMs);
+            where T : IRedlockRepeater => Redlock.LockAsync(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl, _logger, repeater, maxWaitMs, _opt.Value.UtcNow);
         
         /// <summary>
         /// Gets nonce for locking resource
