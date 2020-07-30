@@ -21,7 +21,7 @@ namespace RedlockDotNet.Redis.Tests
         public RedisRedlockIntegrationTests(RedisFixture redis, ITestOutputHelper console) : base(redis)
         {
             _console = console;
-            var opt = new RedisRedlockOptions();
+            var opt = new RedlockOptions();
             _log = new MemoryLogger();
             _5Inst = new RedisRedlockImplementation(new []
             {

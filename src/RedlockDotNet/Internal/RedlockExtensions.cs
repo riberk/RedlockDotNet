@@ -10,8 +10,6 @@ namespace RedlockDotNet.Internal
 {
     internal static class RedlockExtensions
     {
-        private static readonly double TimestampToTicks = TimeSpan.TicksPerSecond / (double) Stopwatch.Frequency;
-
         public static void UnlockAll(
             this ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
@@ -50,8 +48,7 @@ namespace RedlockDotNet.Internal
                 }
             });
             var endTimestamp = Stopwatch.GetTimestamp();
-            var elapsed = new TimeSpan((long)(TimestampToTicks * (endTimestamp - startTimestamp)));
-            return new LockResult(lockedCount, elapsed);
+            return new LockResult(lockedCount, startTimestamp, endTimestamp);
         }
 
         public static async Task<LockResult> TryLockAllAsync(
@@ -68,8 +65,7 @@ namespace RedlockDotNet.Internal
             );
             var lockedCount =(await Task.WhenAll(tasks).ConfigureAwait(false)).Sum();
             var endTimestamp = Stopwatch.GetTimestamp();
-            var elapsed = new TimeSpan((long)(TimestampToTicks * (endTimestamp - startTimestamp)));
-            return new LockResult(lockedCount, elapsed);
+            return new LockResult(lockedCount, startTimestamp, endTimestamp);
         }
 
         private static bool TryLockSafe(

@@ -23,16 +23,21 @@ namespace RedlockDotNet.Redis.Tests
                 IPEndPoint.Parse("0.0.0.1:6001")
             },
         };
+
         public RedlockDiTests(RedisFixture fixture) : base(fixture)
         {
-            _services = new ServiceCollection().AddRedlock().AddRedisStorage(b =>
+            var now = new DateTime(2020, 01, 02, 03, 04, 04, DateTimeKind.Utc);
+            _services = new ServiceCollection().AddRedlock(opt =>
+            {
+                opt.ClockDriftFactor = 0.3f;
+                opt.UtcNow = () => now;
+            }).AddRedisStorage(b =>
             {
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis1"), "1");
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis2"), "2");
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis3"), "3");
             }, opt =>
             {
-                opt.ClockDriftFactor = 0.3f;
                 opt.RedisKeyFromResourceName = resource => $"locks_{resource}";
             });
         }
@@ -67,10 +72,10 @@ namespace RedlockDotNet.Redis.Tests
         public static void AddRedisStorage()
         {
             var p = new ServiceCollection().AddRedlock()
-                .AddRedisStorage(b => { }, o => o.ClockDriftFactor = 0.5f)
+                .AddRedisStorage(b => { }, o => o.RedisKeyFromResourceName = s => $"l_{s}")
                 .AddSingleton(new Mock<IRedlockInstance>().Object)
                 .BuildServiceProvider();
-            Assert.Equal(0.5f, p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.ClockDriftFactor);
+            Assert.Equal("l_a", p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName("a"));
             Assert.NotNull(p.GetService<IRedlockFactory>());
         }
         

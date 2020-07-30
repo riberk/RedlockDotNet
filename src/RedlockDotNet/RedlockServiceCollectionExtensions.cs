@@ -1,5 +1,6 @@
-using System.Diagnostics.Contracts;
+using System;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace RedlockDotNet
 {
@@ -7,9 +8,15 @@ namespace RedlockDotNet
     public static class RedlockServiceCollectionExtensions
     {
         /// <summary>Creates di builder</summary>
-        [Pure]
-        public static IRedlockBuilder AddRedlock(this IServiceCollection services)
+        public static IRedlockBuilder AddRedlock(this IServiceCollection services, Action<RedlockOptions>? configure = null)
         {
+            services.AddLogging();
+            services.AddOptions();
+            services.TryAddSingleton<IRedlockFactory, RedlockFactory>();
+            if (configure != null)
+            {
+                services.Configure(configure);
+            }
             return new Builder(services);
         }
         

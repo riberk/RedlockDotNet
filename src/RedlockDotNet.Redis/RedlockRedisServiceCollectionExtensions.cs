@@ -37,7 +37,6 @@ namespace RedlockDotNet.Redis
             b.Services.AddLogging();
             build(new RedisRedlockBuilder(b.Services));
             b.Services.TryAddSingleton<IRedlockImplementation, RedisRedlockImplementation>();
-            b.Services.TryAddSingleton<IRedlockFactory, RedlockFactory>();
             if (buildOpt != null)
             {
                 b.Services.Configure(buildOpt);

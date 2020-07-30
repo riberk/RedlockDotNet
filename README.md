@@ -54,7 +54,13 @@ AddInstance has overloads and you can configure redis store options
 ```csharp
 
 IServiceCollection services = new ServiceCollection();
-services.AddRedlock().AddRedisStorage(b => {
+services.AddRedlock(opt => {
+  // Configure clock drift factor for increase or decrease min validity
+  opt.ClockDriftFactor = 0.3f;
+  
+  // Change this for your own for tests or other purposes
+  opt.UtcNow = () => DateTime.UtcNow;
+}).AddRedisStorage(b => {
 
   // connection string is StackExchange.Redis compatible
   // https://stackexchange.github.io/StackExchange.Redis/Configuration
@@ -74,9 +80,6 @@ services.AddRedlock().AddRedisStorage(b => {
   b.AddInstance(conf);
 }, opt =>
 {
-    // Configure clock drift factor for increase or decrease min validity
-    opt.ClockDriftFactor = 0.3f;
-
     // Change redis key naming policy
     opt.RedisKeyFromResourceName = resource => $"locks_{resource}";
 });
@@ -96,7 +99,7 @@ IRedlockImplementation impl;
 ILogger log;
 
 // Try lock "resource" with automatic unblocking after 10 seconds
-Redlock? redlock = Redlock.TryLock("resource", "nonce", TimeSpan.FromSeconds(10), impl, log);
+Redlock? redlock = Redlock.TryLock("resource", "nonce", TimeSpan.FromSeconds(10), impl, log, () => DateTime.UtcNow);
 
 Redlock? redlock = Redlock.TryLock("resource", "nonce", TimeSpan.FromSeconds(10), impl, log, new CancellationRedlockRepeater(cancellationToken), maxWaitMs: 200);
 
