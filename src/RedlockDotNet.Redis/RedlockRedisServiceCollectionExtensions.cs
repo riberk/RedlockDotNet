@@ -25,22 +25,16 @@ namespace RedlockDotNet.Redis
         /// </summary>
         /// <param name="b">Di builder</param>
         /// <param name="build">Build func for construct instances</param>
-        /// <param name="buildOpt">Configure options</param>
         /// <returns></returns>
         public static IServiceCollection AddRedisStorage(
             this IRedlockBuilder b, 
-            Action<IRedisRedlockBuilder> build, 
-            Action<RedisRedlockOptions>? buildOpt = null
+            Action<IRedisRedlockBuilder> build
         )
         {
             b.Services.AddOptions();
             b.Services.AddLogging();
             build(new RedisRedlockBuilder(b.Services));
             b.Services.TryAddSingleton<IRedlockImplementation, RedisRedlockImplementation>();
-            if (buildOpt != null)
-            {
-                b.Services.Configure(buildOpt);
-            }
             return b.Services;
         }
 
@@ -202,5 +196,16 @@ namespace RedlockDotNet.Redis
         /// <returns></returns>
         public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, ConfigurationOptions opt, string name) 
             => b.AddInstance(() => ConnectionMultiplexer.Connect(opt), name);
+
+        /// <summary>
+        /// Configure <see cref="RedisRedlockOptions"/>
+        /// </summary>
+        /// <param name="b"></param>
+        /// <param name="buildOpt">Configure options</param>
+        public static IRedisRedlockBuilder ConfigureOptions(this IRedisRedlockBuilder b, Action<RedisRedlockOptions> buildOpt)
+        {
+            b.Services.Configure(buildOpt);
+            return b;
+        }
     }
 }

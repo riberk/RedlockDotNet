@@ -67,6 +67,46 @@ namespace RedlockDotNet.Internal
             var endTimestamp = Stopwatch.GetTimestamp();
             return new LockResult(lockedCount, startTimestamp, endTimestamp);
         }
+        
+        public static LockResult TryExtendAll(
+            this ImmutableArray<IRedlockInstance> instances,
+            ILogger logger,
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            bool tryReacquire
+        )
+        {
+            var lockedCount = 0;
+            var startTimestamp = Stopwatch.GetTimestamp();
+            Parallel.ForEach(instances, i =>
+            {
+                if (i.TryExtendSafe(logger, resource, nonce, lockTimeToLive, tryReacquire))
+                {
+                    Interlocked.Increment(ref lockedCount);
+                }
+            });
+            var endTimestamp = Stopwatch.GetTimestamp();
+            return new LockResult(lockedCount, startTimestamp, endTimestamp);
+        }
+
+        public static async Task<LockResult> TryExtendAllAsync(
+            this ImmutableArray<IRedlockInstance> instances,
+            ILogger logger,
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            bool tryReacquire
+        )
+        {
+            var startTimestamp = Stopwatch.GetTimestamp();
+            var tasks = instances.Select(
+                async x => await x.TryExtendSafeAsync(logger, resource, nonce, lockTimeToLive, tryReacquire).ConfigureAwait(false) ? 1 : 0
+            );
+            var lockedCount =(await Task.WhenAll(tasks).ConfigureAwait(false)).Sum();
+            var endTimestamp = Stopwatch.GetTimestamp();
+            return new LockResult(lockedCount, startTimestamp, endTimestamp);
+        }
 
         private static bool TryLockSafe(
             this IRedlockInstance instance,
@@ -137,6 +177,46 @@ namespace RedlockDotNet.Internal
             catch (Exception e)
             {
                 logger.LogError(e, "Unable to unlock ['{}'] = '{}' on [{}]", resource, nonce, instance);
+            }
+        }
+        
+        private static bool TryExtendSafe(
+            this IRedlockInstance instance,
+            ILogger logger,
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            bool tryReacquire
+        )
+        {
+            try
+            {
+                return instance.TryExtend(resource, nonce, lockTimeToLive, tryReacquire).IsSuccess();
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Unable to extend lock ['{}'] = '{}' on [{}]", resource, nonce, instance);
+                return false;
+            }
+        }
+
+        private static async Task<bool> TryExtendSafeAsync(
+            this IRedlockInstance instance,
+            ILogger logger,
+            string resource,
+            string nonce,
+            TimeSpan lockTimeToLive,
+            bool tryReacquire
+        )
+        {
+            try
+            {
+                return (await instance.TryExtendAsync(resource, nonce, lockTimeToLive, tryReacquire).ConfigureAwait(false)).IsSuccess();
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Unable to extend lock ['{}'] = '{}' on [{}]", resource, nonce, instance);
+                return false;
             }
         }
     }

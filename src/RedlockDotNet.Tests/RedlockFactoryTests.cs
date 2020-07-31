@@ -17,7 +17,7 @@ namespace RedlockDotNet
 
         public RedlockFactoryTests()
         {
-            _mem = TestRedlockImpl.CreateInstances(3, () => new MemoryRedlockInstance());
+            _mem = TestRedlockImpl.CreateInstances(3, (i) => new MemoryRedlockInstance(i.ToString()));
             var now = new DateTime(2020, 07, 08, 1, 2, 3, DateTimeKind.Utc);
             var minValidity = TimeSpan.FromSeconds(10);
             var impl = TestRedlockImpl.Create(_mem, (ttl, duration) => minValidity);

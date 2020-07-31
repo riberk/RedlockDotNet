@@ -22,7 +22,7 @@ namespace RedlockDotNet
                 MockBehavior.Strict);
             _defaultTtl = TimeSpan.FromMinutes(10);
             _defaultMaxWait = 10;
-            _impl = TestRedlockImpl.Create(TestRedlockImpl.CreateInstances(5, () => new MemoryRedlockInstance()));
+            _impl = TestRedlockImpl.Create(TestRedlockImpl.CreateInstances(5, (i) => new MemoryRedlockInstance(i.ToString())));
         }
 
         [Fact]
@@ -75,7 +75,7 @@ namespace RedlockDotNet
 
         private Redlock MockLock()
         {
-            return new Redlock("a", "aa", DateTime.UtcNow, _impl, NullLogger.Instance);
+            return new Redlock("a", "aa", _defaultTtl, DateTime.UtcNow, _impl, NullLogger.Instance);
         }
     }
 }

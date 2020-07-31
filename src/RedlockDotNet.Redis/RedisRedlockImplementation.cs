@@ -11,7 +11,18 @@ namespace RedlockDotNet.Redis
     public class RedisRedlockImplementation : IRedlockImplementation
     {
         private readonly IOptions<RedlockOptions> _redlockOptions;
-        private static readonly TimeSpan RedisResolution = TimeSpan.FromMilliseconds(2);
+        
+        /// <summary>
+        /// Redis expire error is from 0 to 1 milliseconds. (https://redis.io/commands/expire#expire-accuracy)
+        /// </summary>
+        private static readonly TimeSpan RedisResolution = TimeSpan.FromMilliseconds(1);
+        
+        /// <summary>
+        /// We cast <see cref="TimeSpan.TotalMilliseconds"/> from double to long then 10.99 = 10
+        /// </summary>
+        private static readonly TimeSpan SharpTimeSpanCastMaxError = TimeSpan.FromMilliseconds(1);
+        
+        private static readonly TimeSpan ConstDrift = RedisResolution + SharpTimeSpanCastMaxError;
 
         /// <summary>
         /// Implementations for RedLock alg for redis
@@ -33,7 +44,7 @@ namespace RedlockDotNet.Redis
         public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration)
         {
             var drift = lockTimeToLive * _redlockOptions.Value.ClockDriftFactor;
-            return lockTimeToLive - lockingDuration - drift - RedisResolution;
+            return lockTimeToLive - lockingDuration - drift - ConstDrift;
         }
 
         /// <inheritdoc />
