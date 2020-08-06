@@ -8,17 +8,24 @@ using Moq;
 using RedlockDotNet.Repeaters;
 using TestUtils;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace RedlockDotNet
 {
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
-    public class RedlockTests
+    public class RedlockTests : IDisposable
     {
+        private readonly ITestOutputHelper _console;
         private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(1);
         
         private readonly MemoryLogger _log = new MemoryLogger();
         private readonly DateTime _now = DateTime.UtcNow;
 
+        public RedlockTests(ITestOutputHelper console)
+        {
+            _console = console;
+        }
+        
         [Fact]
         public void TryLock()
         {
@@ -31,10 +38,10 @@ namespace RedlockDotNet
         }
         
         [Fact]
-        public void Dispose()
+        public void DisposeTest()
         {
             var instances = MemInstances(3);
-            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(instances), _log);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(instances), _log);
             Lock("r", "n", instances);
             
             l.Dispose();
@@ -57,7 +64,7 @@ namespace RedlockDotNet
         public async Task DisposeAsync()
         {
             var instances = MemInstances(3);
-            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(instances), _log);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(instances), _log);
             Lock("r", "n", instances);
             
             await l.DisposeAsync();
@@ -172,7 +179,7 @@ namespace RedlockDotNet
         {
             var mem = MemInstances(3);
             var err = ErrInstances(2);
-            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(mem, err), _log);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, err), _log);
             Lock("r", "n", mem);
             
             l.Dispose();
@@ -189,7 +196,7 @@ namespace RedlockDotNet
         {
             var mem = MemInstances(3);
             var err = ErrInstances(2);
-            var l = new Redlock("r", "n", _now, TestRedlockImpl.Create(mem, err), _log);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, err), _log);
             Lock("r", "n", mem);
             
             await l.DisposeAsync();
@@ -267,6 +274,7 @@ namespace RedlockDotNet
                 });
             repeater.Setup(x => x.Next()).Returns(true);
             var lockTask = Task.Run(() => Redlock.LockAsync("r", "n", Ttl, TestRedlockImpl.Create(mem), _log, repeater.Object, 600));
+
             Assert.True(waitInvoked.WaitOne(2000));
             repeater.Verify(x => x.Next(), Times.Once);
             Unlock("r", mem);
@@ -298,7 +306,295 @@ namespace RedlockDotNet
             var l = await Redlock.TryLockAsync("r", "n", Ttl, TestRedlockImpl.Create(mem), _log, repeater.Object, 600);
             Assert.Null(l);
         }
-
+        
+        [Fact]
+        public void TryExtend()
+        {
+            var instances = MemInstances(3);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = l.TryExtend(true, () => _now);
+            
+            Assert.Equal(_now.Add(Ttl), actualValidUntil);
+            Assert.All(instances, i => Assert.True(i.Contains("r", "n")));
+        }
+        
+        [Fact]
+        public void TryExtend_NoQuorum()
+        {
+            var instances = MemInstances(3);
+            Lock("r", "n2", instances[0], instances[1]);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = l.TryExtend(true, () => _now);
+            
+            Assert.Null(actualValidUntil);            
+            Assert.True(instances[0].Contains("r", "n2"));
+            Assert.True(instances[1].Contains("r", "n2"));
+            Assert.False(instances[2].Contains("r", "n2"));
+            Assert.True(instances[2].Contains("r", "n"));
+        }
+        
+        [Fact]
+        public void TryExtend_NoQuorum_NoReacquire()
+        {
+            var instances = MemInstances(3);
+            Lock("r", "n2", instances[0], instances[1]);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = l.TryExtend(false, () => _now);
+            
+            Assert.Null(actualValidUntil);            
+            Assert.True(instances[0].Contains("r", "n2"));
+            Assert.True(instances[1].Contains("r", "n2"));
+            Assert.False(instances[2].Contains("r", "n2"));
+            Assert.False(instances[2].Contains("r", "n"));
+        }
+        
+        [Fact]
+        public void TryExtend_Quorum_NoReacquire()
+        {
+            var instances = MemInstances(3);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = l.TryExtend(false, () => _now);
+            
+            Assert.Null(actualValidUntil);            
+            Assert.All(instances, i => Assert.False(i.Contains("r", "n")));
+        }
+        
+        
+        
+        [Fact]
+        public async Task TryExtendAsync()
+        {
+            var instances = MemInstances(3);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            
+            Assert.Equal(_now.Add(Ttl), actualValidUntil);
+            Assert.All(instances, i => Assert.True(i.Contains("r", "n")));
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_NoQuorum()
+        {
+            var instances = MemInstances(3);
+            Lock("r", "n2", instances[0], instances[1]);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            
+            Assert.Null(actualValidUntil);            
+            Assert.True(instances[0].Contains("r", "n2"));
+            Assert.True(instances[1].Contains("r", "n2"));
+            Assert.False(instances[2].Contains("r", "n2"));
+            Assert.True(instances[2].Contains("r", "n"));
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_NoQuorum_NoReacquire()
+        {
+            var instances = MemInstances(3);
+            Lock("r", "n2", instances[0], instances[1]);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = await l.TryExtendAsync(false, () => _now);
+            
+            Assert.Null(actualValidUntil);            
+            Assert.True(instances[0].Contains("r", "n2"));
+            Assert.True(instances[1].Contains("r", "n2"));
+            Assert.False(instances[2].Contains("r", "n2"));
+            Assert.False(instances[2].Contains("r", "n"));
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_Quorum_NoReacquire()
+        {
+            var instances = MemInstances(3);
+            var impl = TestRedlockImpl.Create(instances, (ttl, duration) => ttl);
+            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
+            
+            var actualValidUntil = await l.TryExtendAsync(false, () => _now);
+            
+            Assert.Null(actualValidUntil);            
+            Assert.All(instances, i => Assert.False(i.Contains("r", "n")));
+        }
+        
+        [Fact]
+        public async Task ExtendWithRepeater()
+        {
+            using var waitAre = new AutoResetEvent(false);
+            using var waitInvoked = new AutoResetEvent(false);
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.WaitRandom(600)).Callback(() =>
+            {
+                waitInvoked.Set();
+                Assert.True(waitAre.WaitOne(2000));
+            });
+            repeater.Setup(x => x.Next()).Returns(true);
+            var task = Task.Run(() =>
+            {
+                var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, (ttl, duration) => ttl), _log);
+                return l.Extend(true, repeater.Object, 600, () => _now);
+            });
+            Assert.True(waitInvoked.WaitOne(2000));
+            repeater.Verify(x => x.Next(), Times.Once);
+            Unlock("r", mem);
+            waitAre.Set();
+            var actualValidUntil = await task;
+            Assert.All(mem, i => Assert.True(i.Contains("r", "n")));
+            Assert.Equal(_now.Add(Ttl), actualValidUntil);
+        }
+        
+        [Fact]
+        public void ExtendWithRepeater_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            var expected = new Exception();
+            repeater.Setup(x => x.CreateException("r", "n", 1)).Returns(expected);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, (ttl, duration) => ttl), _log);
+            var actual = Assert.Throws<Exception>(() => l.Extend(true, repeater.Object, 600));
+            Assert.Same(expected, actual);
+        }
+        
+        [Fact]
+        public void TryExtendWithRepeater_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, (ttl, duration) => ttl), _log);
+            var actualValidUntil = l.TryExtend(true, repeater.Object, 600);
+            Assert.Null(actualValidUntil);
+        }
+        
+        [Fact]
+        public async Task ExtendWithRepeaterAsync()
+        {
+            using var waitAre = new AutoResetEvent(false);
+            using var waitInvoked = new AutoResetEvent(false);
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.WaitRandomAsync(600, default)).Returns(new ValueTask()).Callback(() =>
+            {
+                waitInvoked.Set();
+                Assert.True(waitAre.WaitOne(2000));
+            });
+            repeater.Setup(x => x.Next()).Returns(true);
+            var task = Task.Run(async () =>
+            {
+                var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, (ttl, duration) => ttl), _log);
+                return await l.ExtendAsync(true, repeater.Object, 600, () => _now);
+            });
+            Assert.True(waitInvoked.WaitOne(2000));
+            repeater.Verify(x => x.Next(), Times.Once);
+            Unlock("r", mem);
+            waitAre.Set();
+            var actualValidUntil = await task;
+            Assert.All(mem, i => Assert.True(i.Contains("r", "n")));
+            Assert.Equal(_now.Add(Ttl), actualValidUntil);
+        }
+        
+        [Fact]
+        public async Task ExtendWithRepeaterAsync_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            var expected = new Exception();
+            repeater.Setup(x => x.CreateException("r", "n", 1)).Returns(expected);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, (ttl, duration) => ttl), _log);
+            var actual = await Assert.ThrowsAsync<Exception>(() => l.ExtendAsync(true, repeater.Object, 600));
+            Assert.Same(expected, actual);
+        }
+        
+        [Fact]
+        public async Task TryExtendWithRepeaterAsync_UnableToObtainLock()
+        {
+            var mem = MemInstances(3);
+            Lock("r", "n2", mem);
+            var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
+            repeater.Setup(x => x.Next()).Returns(false);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(mem, (ttl, duration) => ttl), _log);
+            var actualValidUntil = await l.TryExtendAsync(true, repeater.Object, 600);
+            Assert.Null(actualValidUntil);
+        }
+        
+        [Fact]
+        public void TryExtend_Quorum_Errors()
+        {
+            var err = ErrInstances(2);
+            var mem = MemInstances(3);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create((ttl, duration) => ttl, mem, err), _log);
+            var actualValidUntil = l.TryExtend(true, () => _now);
+            Assert.NotNull(actualValidUntil);
+            Assert.Equal(_now.Add(Ttl), actualValidUntil);
+            var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
+            Assert.Equal(2, errorLogs.Length);
+            Assert.Contains(errorLogs, e => e.Exception == err[0].TryExtendException);
+            Assert.Contains(errorLogs, e => e.Exception == err[1].TryExtendException);
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_Quorum_Errors()
+        {
+            var err = ErrInstances(2);
+            var mem = MemInstances(3);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create((ttl, duration) => ttl, mem, err), _log);
+            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            Assert.NotNull(actualValidUntil);
+            Assert.Equal(_now.Add(Ttl), actualValidUntil);
+            var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
+            Assert.Equal(2, errorLogs.Length);
+            Assert.Contains(errorLogs, e => e.Exception == err[0].TryExtendAsyncException);
+            Assert.Contains(errorLogs, e => e.Exception == err[1].TryExtendAsyncException);
+        }
+        
+        [Fact]
+        public void TryExtend_NoQuorum_Errors()
+        {
+            var err = ErrInstances(3);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(err), _log);
+            var actualValidUntil = l.TryExtend(true, () => _now);
+            Assert.Null(actualValidUntil);
+            var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
+            Assert.Equal(3, errorLogs.Length);
+            Assert.Contains(errorLogs, e => e.Exception == err[0].TryExtendException);
+            Assert.Contains(errorLogs, e => e.Exception == err[1].TryExtendException);
+            Assert.Contains(errorLogs, e => e.Exception == err[2].TryExtendException);
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_NoQuorum_Errors()
+        {
+            var err = ErrInstances(3);
+            var l = new Redlock("r", "n", Ttl, _now, TestRedlockImpl.Create(err), _log);
+            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            Assert.Null(actualValidUntil);
+            var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
+            Assert.Equal(3, errorLogs.Length);
+            Assert.Contains(errorLogs, e => e.Exception == err[0].TryExtendAsyncException);
+            Assert.Contains(errorLogs, e => e.Exception == err[1].TryExtendAsyncException);
+            Assert.Contains(errorLogs, e => e.Exception == err[2].TryExtendAsyncException);
+        }
+        
         [Fact]
         public static void DisposeDefaultStruct() => new Redlock().Dispose();
 
@@ -322,12 +618,18 @@ namespace RedlockDotNet
         private static void Unlock(string key, params MemoryRedlockInstance[] instances)
             => MemoryRedlockInstance.Unlock(key, instances);
 
-        private static T[] Instances<T>(int count, Func<T> create) => TestRedlockImpl.CreateInstances(count, create);
+        private static T[] Instances<T>(int count, Func<int, T> create) => TestRedlockImpl.CreateInstances(count, create);
 
         private static MemoryRedlockInstance[] MemInstances(int count) 
-            => Instances(count, () => new MemoryRedlockInstance());
+            =>  Instances(count, (i) => new MemoryRedlockInstance(i.ToString()));
         
         private static ExceptionRedlockInstance[] ErrInstances(int count) 
-            => Instances(count, () => new ExceptionRedlockInstance());
+            => Instances(count, (i) => new ExceptionRedlockInstance());
+
+        public void Dispose()
+        {
+            _log.Provider.WriteLogs(_console.WriteLine);
+            _log.Dispose();
+        }
     }
 }

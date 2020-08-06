@@ -41,11 +41,14 @@ namespace TestUtils
             => Create(instances.SelectMany(s => s), minValidity);
 
         public static T[] CreateInstances<T>(int count, Func<T> create)
+            => CreateInstances(count, i => create());
+        
+        public static T[] CreateInstances<T>(int count, Func<int, T> create)
         {
             var arr = new T[count];
             for (int i = 0; i < count; i++)
             {
-                arr[i] = create();
+                arr[i] = create(i);
             }
 
             return arr;

@@ -45,5 +45,31 @@ namespace RedlockDotNet
         /// <param name="resource">Resource to lock</param>
         /// <param name="nonce">Value to differentiate lock owners of resource on server</param>
         Task UnlockAsync(string resource, string nonce);
+
+        /// <summary>
+        /// Try extend lock resource on server
+        /// </summary>
+        /// <param name="resource">Resource to lock</param>
+        /// <param name="nonce">Value to differentiate lock owners of resource on server</param>
+        /// <param name="lockTimeToLive">
+        /// Time to live of acquired lock.
+        /// Attention! If this ttl are expired, code that the lock uses has a safety violation
+        /// </param>
+        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
+        /// <returns>Result of extend operation</returns>
+        ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire);
+        
+        /// <summary>
+        /// Try extend lock resource on server
+        /// </summary>
+        /// <param name="resource">Resource to lock</param>
+        /// <param name="nonce">Value to differentiate lock owners of resource on server</param>
+        /// <param name="lockTimeToLive">
+        /// Time to live of acquired lock.
+        /// Attention! If this ttl are expired, code that the lock uses has a safety violation
+        /// </param>
+        /// <param name="tryReacquire">If true (default) we try to reacquire lock when it is lost</param>
+        /// <returns>Result of extend operation</returns>
+        Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire);
     }
 }

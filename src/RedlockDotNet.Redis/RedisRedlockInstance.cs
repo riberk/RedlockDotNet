@@ -19,11 +19,36 @@ namespace RedlockDotNet.Redis
         // ReSharper disable once ConvertToConstant.Local
         private static readonly string UnlockLua = @"
 if redis.call('get', KEYS[1]) == ARGV[1] then
-	return redis.call('del', KEYS[1])
+  return redis.call('del', KEYS[1])
 else
-	return 0
+  return 0
 end
 ";
+        
+        // ReSharper disable once ConvertToConstant.Local
+        /// <summary>
+        /// KEYS[1] is locking resource redis key
+        /// ARGV[1] is nonce
+        /// ARGV[2] is lock time to live in milliseconds
+        /// ARGV[3] is (tryReacquire ? 1 : 0)
+        /// result is <see cref="ExtendResult"/>
+        /// </summary>
+        private static readonly string ExtendLua = @"
+local currentVal = redis.call('get', KEYS[1])
+if (currentVal == false) then
+  if(ARGV[3] == ""1"") then  
+    return redis.call('set', KEYS[1], ARGV[1], 'PX', ARGV[2]) and 2 or 0
+  else
+    return -2
+  end
+elseif (currentVal == ARGV[1]) then
+  redis.call('pexpire', KEYS[1], ARGV[2])
+  return 1
+else
+  return -1
+end
+";
+
         
         /// <summary>
         /// Redis instance for distributed lock
@@ -77,6 +102,38 @@ end
                 .ScriptEvaluateAsync(UnlockLua, new RedisKey[] {key}, new RedisValue[] {nonce}, CommandFlags.DemandMaster)
                 .ConfigureAwait(false);
             _logger.Unlocked(resource, nonce, _name, key, res);
+        }
+
+        /// <inheritdoc />
+        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        {
+            var key = Key(resource);
+            _logger.TryExtendLock(resource, nonce, _name, lockTimeToLive, tryReacquire, key);
+            var scriptEvaluateResult = SelectDb()
+                .ScriptEvaluate(ExtendLua, new RedisKey[] {key}, new RedisValue[]
+                {
+                    nonce,
+                    (long) lockTimeToLive.TotalMilliseconds,
+                    tryReacquire ? 1 : 0
+                });
+            _logger.ExtendScriptExecuted(resource, nonce, _name, lockTimeToLive, key, scriptEvaluateResult);
+            return (ExtendResult) (int) scriptEvaluateResult;
+        }
+
+        /// <inheritdoc />
+        public async Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        {
+            var key = Key(resource);
+            _logger.TryExtendLock(resource, nonce, _name, lockTimeToLive, tryReacquire, key);
+            var scriptEvaluateResult = await SelectDb()
+                .ScriptEvaluateAsync(ExtendLua, new RedisKey[] {key}, new RedisValue[]
+                {
+                    nonce,
+                    (long) lockTimeToLive.TotalMilliseconds,
+                    tryReacquire ? 1 : 0
+                });
+            _logger.ExtendScriptExecuted(resource, nonce, _name, lockTimeToLive, key, scriptEvaluateResult);
+            return (ExtendResult) (int) scriptEvaluateResult;
         }
 
         /// <summary>

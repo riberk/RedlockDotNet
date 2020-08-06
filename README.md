@@ -72,16 +72,17 @@ services.AddRedlock(opt => {
   // use ConfigurationOptions for configure
   var conf = new ConfigurationOptions
   {
-      EndPoints =
-      {
-          IPEndPoint.Parse("127.0.0.1:6379")
-      }
+    EndPoints =
+    {
+      IPEndPoint.Parse("127.0.0.1:6379")
+    }
   };
   b.AddInstance(conf);
-}, opt =>
-{
+  b.ConfigureOptions(opt =>
+  {
     // Change redis key naming policy
     opt.RedisKeyFromResourceName = resource => $"locks_{resource}";
+  });
 });
 
 ```

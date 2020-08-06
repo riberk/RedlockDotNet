@@ -73,6 +73,85 @@ namespace RedlockDotNet.Redis.Tests
             Assert.True(Db().KeyExists("r"));
         }
 
+        [Fact]
+        public void TryExtend_Owner()
+        {
+            Db().StringSet("r", "n", TimeSpan.FromSeconds(5));
+            Assert.Equal(ExtendResult.Extend, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), false));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.Equal("n", result.Value);
+            Assert.NotNull(result.Expiry);
+            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+        }
+        
+        [Fact]
+        public void TryExtend_Owner_Reacquire()
+        {
+            Assert.Equal(ExtendResult.Reacquire, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), true));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.Equal("n", result.Value);
+            Assert.NotNull(result.Expiry);
+            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+        }
+        
+        [Fact]
+        public void TryExtend_Owner_ReacquireFail()
+        {
+            Assert.Equal(ExtendResult.IllegalReacquire, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), false));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.False(result.Value.HasValue);
+        }
+        
+        [Fact]
+        public void TryExtend_NotOwner()
+        {
+            Db().StringSet("r", "nnnnn");
+            Assert.Equal(ExtendResult.AlreadyAcquiredByAnotherOwner, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), false));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.Equal("nnnnn", result.Value);
+            Assert.Null(result.Expiry);
+        }
+        
+        
+        [Fact]
+        public async Task TryExtendAsync_Owner()
+        {
+            Db().StringSet("r", "n", TimeSpan.FromSeconds(5));
+            Assert.Equal(ExtendResult.Extend, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), false));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.Equal("n", result.Value);
+            Assert.NotNull(result.Expiry);
+            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_Owner_Reacquire()
+        {
+            Assert.Equal(ExtendResult.Reacquire, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), true));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.Equal("n", result.Value);
+            Assert.NotNull(result.Expiry);
+            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_Owner_ReacquireFail()
+        {
+            Assert.Equal(ExtendResult.IllegalReacquire, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), false));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.False(result.Value.HasValue);
+        }
+        
+        [Fact]
+        public async Task TryExtendAsync_NotOwner()
+        {
+            Db().StringSet("r", "nnnnn");
+            Assert.Equal(ExtendResult.AlreadyAcquiredByAnotherOwner, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), false));
+            var result = Db().StringGetWithExpiry("r");
+            Assert.Equal("nnnnn", result.Value);
+            Assert.Null(result.Expiry);
+        }
+
         private IDatabase Db()
         {
             return Redis.Redis1.GetDatabase();

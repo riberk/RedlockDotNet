@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using RedlockDotNet;
 
@@ -7,20 +8,34 @@ namespace TestUtils
 {
     public class MemoryRedlockInstance : IRedlockInstance
     {
+        public string Name { get; }
+
+        public MemoryRedlockInstance(string name)
+        {
+            Name = name;
+        }
         private readonly Dictionary<string, string> _data = new Dictionary<string, string>();
+        private readonly Dictionary<string, CancellationTokenSource> _unlockTaskCancellations = new Dictionary<string, CancellationTokenSource>();
             
         public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive)
         {
             lock (this)
             {
-                var _ = UnlockAfter(resource, nonce, lockTimeToLive);
-                return _data.TryAdd(resource, nonce);
+                return TryAddInternal(resource, nonce, lockTimeToLive);
             }
         }
 
-        private async Task UnlockAfter(string resource, string nonce, TimeSpan lockTimeToLive)
+        private bool TryAddInternal(string resource, string nonce, TimeSpan lockTimeToLive)
         {
-            await Task.Delay(lockTimeToLive);
+            var cts = new CancellationTokenSource();
+            _unlockTaskCancellations.Add(resource, cts);
+            var _ = UnlockAfter(resource, nonce, lockTimeToLive, cts.Token);
+            return _data.TryAdd(resource, nonce);
+        }
+
+        private async Task UnlockAfter(string resource, string nonce, TimeSpan lockTimeToLive, CancellationToken cancellationToken)
+        {
+            await Task.Delay(lockTimeToLive, cancellationToken);
             // ReSharper disable once MethodHasAsyncOverload
             Unlock(resource, nonce);
         }
@@ -37,6 +52,7 @@ namespace TestUtils
                 if (_data.TryGetValue(resource, out var actualNonce) && actualNonce == nonce)
                 {
                     _data.Remove(resource);
+                    RemoveCancellation(resource);
                 }
             }
         }
@@ -45,6 +61,50 @@ namespace TestUtils
         {
             Unlock(resource, nonce);
             return Task.CompletedTask;
+        }
+
+        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        {
+            lock (this)
+            {
+                if (_data.TryGetValue(resource, out var actualNonce))
+                {
+                    if (actualNonce != nonce)
+                    {
+                        return ExtendResult.AlreadyAcquiredByAnotherOwner;
+                    }
+
+                    RemoveCancellation(resource);
+                    _data.Remove(resource);
+                    TryAddInternal(resource, nonce, lockTimeToLive);
+                    return ExtendResult.Extend;
+                }
+
+                if (!tryReacquire)
+                {
+                    return ExtendResult.IllegalReacquire;
+                }
+                TryAddInternal(resource, nonce, lockTimeToLive);
+                return ExtendResult.Reacquire;
+            }
+        }
+
+        public Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        {
+            return Task.FromResult(TryExtend(resource, nonce, lockTimeToLive, tryReacquire));
+        }
+
+        private void RemoveCancellation(string resource)
+        {
+            lock (this)
+            {
+                if (!_unlockTaskCancellations.Remove(resource, out var cts))
+                {
+                    return;
+                }
+                cts.Cancel();
+                cts.Dispose();
+            }
         }
 
         public bool Contains(string resource, string nonce)
@@ -60,17 +120,10 @@ namespace TestUtils
             lock (this)
             {
                 _data.Remove(resource);
+                RemoveCancellation(resource);
             }
         }
             
-        public void UnlockAll()
-        {
-            lock (this)
-            {
-                _data.Clear();
-            }
-        }
-        
         public static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)
         {
             foreach (var instance in instances)
@@ -88,6 +141,11 @@ namespace TestUtils
             {
                 instance.Unlock(key);
             }
+        }
+
+        public override string ToString()
+        {
+            return $"mem:{Name}";
         }
     }
 }

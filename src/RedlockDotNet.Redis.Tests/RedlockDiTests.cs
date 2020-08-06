@@ -36,9 +36,10 @@ namespace RedlockDotNet.Redis.Tests
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis1"), "1");
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis2"), "2");
                 b.AddInstance(TestConfig.Instance.GetConnectionString("redis3"), "3");
-            }, opt =>
-            {
-                opt.RedisKeyFromResourceName = resource => $"locks_{resource}";
+                b.ConfigureOptions(opt =>
+                {
+                    opt.RedisKeyFromResourceName = resource => $"locks_{resource}";
+                });
             });
         }
 
@@ -72,7 +73,7 @@ namespace RedlockDotNet.Redis.Tests
         public static void AddRedisStorage()
         {
             var p = new ServiceCollection().AddRedlock()
-                .AddRedisStorage(b => { }, o => o.RedisKeyFromResourceName = s => $"l_{s}")
+                .AddRedisStorage(b => { b.ConfigureOptions(o => o.RedisKeyFromResourceName = s => $"l_{s}");})
                 .AddSingleton(new Mock<IRedlockInstance>().Object)
                 .BuildServiceProvider();
             Assert.Equal("l_a", p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName("a"));

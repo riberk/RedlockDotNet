@@ -4,6 +4,7 @@ namespace RedlockDotNet.Internal
 {
     internal readonly struct LockResult
     {
+        private static readonly Func<DateTime> DefaultUtcNow = () => DateTime.UtcNow;
         public LockResult(int lockedCount, long startTimestamp, long endTimestamp)
         {
             LockedCount = lockedCount;
@@ -17,12 +18,12 @@ namespace RedlockDotNet.Internal
 
         public TimeSpan Elapsed => TimestampHelper.ToTimeSpan(StartTimestamp - EndTimestamp);
 
-        public bool IsLocked(TimeSpan lockTimeToLive, IRedlockImplementation implementation, Func<DateTime> utcNow, out DateTime validUntilUtc)
+        public bool IsLocked(TimeSpan lockTimeToLive, IRedlockImplementation implementation, Func<DateTime>? utcNow, out DateTime validUntilUtc)
         {
             var quorum = implementation.Instances.Length / 2 + 1;
             var minValidity = implementation.MinValidity(lockTimeToLive, Elapsed);
             var res = LockedCount >= quorum && minValidity > TimeSpan.Zero;
-            validUntilUtc = res ? utcNow() + minValidity : default;
+            validUntilUtc = res ? (utcNow ?? DefaultUtcNow)() + minValidity : default;
             return res;
         }
 
