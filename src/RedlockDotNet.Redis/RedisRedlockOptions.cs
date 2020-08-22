@@ -3,7 +3,7 @@ using System;
 namespace RedlockDotNet.Redis
 {
     /// <summary>
-    /// Options for <see cref="RedisRedlockImplementation"/>
+    /// Options for <see cref="RedisRedlockInstance"/>
     /// </summary>
     public class RedisRedlockOptions
     {

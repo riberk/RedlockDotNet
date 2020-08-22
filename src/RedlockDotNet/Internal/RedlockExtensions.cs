@@ -17,6 +17,10 @@ namespace RedlockDotNet.Internal
             string nonce
         )
         {
+            if (instances.IsDefaultOrEmpty)
+            {
+                return;
+            }
             Parallel.ForEach(instances, i => i.UnlockSafe(logger, resource, nonce));
         }
 
@@ -27,7 +31,9 @@ namespace RedlockDotNet.Internal
             string nonce
         )
         {
-            return Task.WhenAll(instances.Select(x => UnlockSafeAsync(x, logger, resource, nonce)));
+            return instances.IsDefaultOrEmpty 
+                ? Task.CompletedTask 
+                : Task.WhenAll(instances.Select(x => UnlockSafeAsync(x, logger, resource, nonce)));
         }
 
         public static LockResult TryLockAll(
@@ -38,17 +44,21 @@ namespace RedlockDotNet.Internal
             TimeSpan lockTimeToLive
         )
         {
-            var lockedCount = 0;
-            var startTimestamp = Stopwatch.GetTimestamp();
-            Parallel.ForEach(instances, i =>
+            if (instances.IsDefaultOrEmpty)
             {
-                if (i.TryLockSafe(logger, resource, nonce, lockTimeToLive))
+                return LockResult.Empty;
+            }
+            
+            var lockedCount = 0;
+            var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
+            Parallel.ForEach(instances, instance =>
+            {
+                if (instance.TryLockSafe(logger, resource, nonce, lockTimeToLive))
                 {
                     Interlocked.Increment(ref lockedCount);
                 }
             });
-            var endTimestamp = Stopwatch.GetTimestamp();
-            return new LockResult(lockedCount, startTimestamp, endTimestamp);
+            return lockResultBuilder.End(lockedCount);
         }
 
         public static async Task<LockResult> TryLockAllAsync(
@@ -59,13 +69,16 @@ namespace RedlockDotNet.Internal
             TimeSpan lockTimeToLive
         )
         {
-            var startTimestamp = Stopwatch.GetTimestamp();
+            if (instances.IsDefaultOrEmpty)
+            {
+                return LockResult.Empty;
+            }
+
+            var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             var tasks = instances.Select(
                 async x => await x.TryLockSafeAsync(logger, resource, nonce, lockTimeToLive).ConfigureAwait(false) ? 1 : 0
             );
-            var lockedCount =(await Task.WhenAll(tasks).ConfigureAwait(false)).Sum();
-            var endTimestamp = Stopwatch.GetTimestamp();
-            return new LockResult(lockedCount, startTimestamp, endTimestamp);
+            return lockResultBuilder.End((await Task.WhenAll(tasks).ConfigureAwait(false)).Sum());
         }
         
         public static LockResult TryExtendAll(
@@ -77,8 +90,13 @@ namespace RedlockDotNet.Internal
             bool tryReacquire
         )
         {
+            if (instances.IsDefaultOrEmpty)
+            {
+                return LockResult.Empty;
+            }
+            
             var lockedCount = 0;
-            var startTimestamp = Stopwatch.GetTimestamp();
+            var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             Parallel.ForEach(instances, i =>
             {
                 if (i.TryExtendSafe(logger, resource, nonce, lockTimeToLive, tryReacquire))
@@ -86,8 +104,7 @@ namespace RedlockDotNet.Internal
                     Interlocked.Increment(ref lockedCount);
                 }
             });
-            var endTimestamp = Stopwatch.GetTimestamp();
-            return new LockResult(lockedCount, startTimestamp, endTimestamp);
+            return lockResultBuilder.End(lockedCount);
         }
 
         public static async Task<LockResult> TryExtendAllAsync(
@@ -99,13 +116,16 @@ namespace RedlockDotNet.Internal
             bool tryReacquire
         )
         {
-            var startTimestamp = Stopwatch.GetTimestamp();
+            if (instances.IsDefaultOrEmpty)
+            {
+                return LockResult.Empty;
+            }
+            
+            var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             var tasks = instances.Select(
                 async x => await x.TryExtendSafeAsync(logger, resource, nonce, lockTimeToLive, tryReacquire).ConfigureAwait(false) ? 1 : 0
             );
-            var lockedCount =(await Task.WhenAll(tasks).ConfigureAwait(false)).Sum();
-            var endTimestamp = Stopwatch.GetTimestamp();
-            return new LockResult(lockedCount, startTimestamp, endTimestamp);
+            return lockResultBuilder.End((await Task.WhenAll(tasks).ConfigureAwait(false)).Sum());
         }
 
         private static bool TryLockSafe(
@@ -217,6 +237,49 @@ namespace RedlockDotNet.Internal
             {
                 logger.LogError(e, "Unable to extend lock ['{}'] = '{}' on [{}]", resource, nonce, instance);
                 return false;
+            }
+        }
+        
+        private readonly struct LockResultBuilder
+        {
+            private readonly ImmutableArray<IRedlockInstance> _instances;
+            private readonly TimeSpan _lockTimeToLive;
+            private readonly long _startTimestamp;
+
+            public LockResultBuilder(
+                ImmutableArray<IRedlockInstance> instances,
+                TimeSpan lockTimeToLive,
+                long startTimestamp
+            )
+            {
+                if(instances.Length == 0) throw new ArgumentOutOfRangeException(nameof(instances), "instances must not be empty");
+                _instances = instances;
+                _lockTimeToLive = lockTimeToLive;
+                _startTimestamp = startTimestamp;
+            }
+            
+            public static LockResultBuilder Start(ImmutableArray<IRedlockInstance> instances, TimeSpan lockTimeToLive)
+            {
+                return new LockResultBuilder(instances, lockTimeToLive, Stopwatch.GetTimestamp());
+            }
+
+            public LockResult End(int lockedCount)
+            {
+                var elapsed = TimestampHelper.ToTimeSpan(Stopwatch.GetTimestamp() - _startTimestamp);
+                TimeSpan? minValidity = null;
+                
+                // ReSharper disable once ForCanBeConvertedToForeach
+                for (var i = 0; i < _instances.Length; i++)
+                {
+                    var newValidity = _instances[i].MinValidity(_lockTimeToLive, elapsed);
+                    
+                    if (newValidity < (minValidity ??= newValidity))
+                    {
+                        minValidity = newValidity;
+                    }
+                }
+
+                return new LockResult(lockedCount, minValidity ?? TimeSpan.Zero, elapsed, _instances.Length);
             }
         }
     }

@@ -15,6 +15,19 @@ namespace RedlockDotNet.Redis
         private readonly Func<string, string> _createKeyFromResourceName;
         private readonly string _name;
         private readonly ILogger _logger;
+        private readonly float _clockDriftFactor;
+
+        /// <summary>
+        /// Redis expire error is from 0 to 1 milliseconds. (https://redis.io/commands/expire#expire-accuracy)
+        /// </summary>
+        private static readonly TimeSpan RedisResolution = TimeSpan.FromMilliseconds(1);
+        
+        /// <summary>
+        /// We cast <see cref="TimeSpan.TotalMilliseconds"/> from double to long then 10.99 = 10
+        /// </summary>
+        private static readonly TimeSpan SharpTimeSpanCastMaxError = TimeSpan.FromMilliseconds(1);
+        
+        private static readonly TimeSpan ConstDrift = RedisResolution + SharpTimeSpanCastMaxError;
 
         // ReSharper disable once ConvertToConstant.Local
         private static readonly string UnlockLua = @"
@@ -57,12 +70,14 @@ end
             Func<IDatabase> selectDb,
             Func<string, string> createKeyFromResourceName, 
             string name,
+            float clockDriftFactor,
             ILogger logger
         )
         {
             SelectDb = selectDb;
             _createKeyFromResourceName = createKeyFromResourceName;
             _name = name;
+            _clockDriftFactor = clockDriftFactor;
             _logger = logger;
         }
 
@@ -152,33 +167,34 @@ end
         /// <param name="database">Number of the database where the locks will be stored</param>
         /// <param name="name">Instance name for logs and ToString</param>
         /// <param name="logger"></param>
+        /// <param name="clockDriftFactor">Drift factor for system clock (multiply with ttl of lock)</param>
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
             Func<string, string> createKeyFromResourceName,
             int database,
             string name,
+            float clockDriftFactor,
             ILogger logger
-        ) => new RedisRedlockInstance(() => con.GetDatabase(database), createKeyFromResourceName, name, logger);
-
+        ) => new RedisRedlockInstance(() => con.GetDatabase(database), createKeyFromResourceName, name, clockDriftFactor, logger);
+        
         /// <summary>
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
         /// </summary>
-        /// <remarks>
-        /// Name of instance sets to first connection endpoint ToString
-        /// </remarks>
         /// <param name="con"></param>
         /// <param name="createKeyFromResourceName"></param>
         /// <param name="database">Number of the database where the locks will be stored</param>
         /// <param name="logger"></param>
+        /// <param name="clockDriftFactor">Drift factor for system clock (multiply with ttl of lock)</param>
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
             Func<string, string> createKeyFromResourceName,
-            int database, 
+            int database,
+            float clockDriftFactor,
             ILogger logger
-        ) => Create(con, createKeyFromResourceName, database, GetName(con), logger);
-
+        ) => new RedisRedlockInstance(() => con.GetDatabase(database), createKeyFromResourceName, GetName(con), clockDriftFactor, logger);
+        
         /// <summary>
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
         /// </summary>
@@ -188,14 +204,16 @@ end
         /// <param name="con"></param>
         /// <param name="createKeyFromResourceName"></param>
         /// <param name="name">Instance name for logs and ToString</param>
+        /// <param name="clockDriftFactor">Drift factor for system clock (multiply with ttl of lock)</param>
         /// <param name="logger"></param>
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
             Func<string, string> createKeyFromResourceName,
             string name,
+            float clockDriftFactor,
             ILogger logger
-        ) => new RedisRedlockInstance(() => con.GetDatabase(), createKeyFromResourceName, name, logger);
+        ) => new RedisRedlockInstance(() => con.GetDatabase(), createKeyFromResourceName, name, clockDriftFactor, logger);
 
         /// <summary>
         /// Create <see cref="RedisRedlockInstance"/> from <see cref="ConnectionMultiplexer"/>
@@ -208,14 +226,23 @@ end
         /// </remarks>
         /// <param name="con"></param>
         /// <param name="createKeyFromResourceName"></param>
+        /// <param name="clockDriftFactor">Drift factor for system clock (multiply with ttl of lock)</param>
         /// <param name="logger"></param>
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
             Func<string, string> createKeyFromResourceName,
+            float clockDriftFactor,
             ILogger logger
-        ) => Create(con, createKeyFromResourceName, GetName(con), logger);
+        ) => Create(con, createKeyFromResourceName, GetName(con), clockDriftFactor, logger);
         
         private static string GetName(IConnectionMultiplexer con) => con.GetEndPoints().FirstOrDefault()?.ToString() ?? "NO_ENDPOINT";
+        
+        /// <inheritdoc />
+        public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration)
+        {
+            var drift = lockTimeToLive * _clockDriftFactor;
+            return lockTimeToLive - lockingDuration - drift - ConstDrift;
+        }
     }
 }

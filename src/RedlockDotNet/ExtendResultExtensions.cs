@@ -17,6 +17,5 @@ namespace RedlockDotNet
 
         /// <summary>The extension success</summary>
         public static bool IsSuccess(this ExtendResult r) => !r.IsFail();
-
     }
 }

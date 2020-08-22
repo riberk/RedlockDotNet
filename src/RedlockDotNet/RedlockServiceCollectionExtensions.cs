@@ -13,6 +13,7 @@ namespace RedlockDotNet
             services.AddLogging();
             services.AddOptions();
             services.TryAddSingleton<IRedlockFactory, RedlockFactory>();
+            services.TryAddSingleton<IRedlockImplementation, RedlockImplementation>();
             if (configure != null)
             {
                 services.Configure(configure);

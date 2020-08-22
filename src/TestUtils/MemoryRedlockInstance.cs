@@ -1,22 +1,29 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using RedlockDotNet;
 
 namespace TestUtils
 {
+    public delegate TimeSpan MinValidityDelegate(TimeSpan lockTimeToLive, TimeSpan lockingDuration);
+
     public class MemoryRedlockInstance : IRedlockInstance
     {
+        private readonly MinValidityDelegate _minValidity;
         public string Name { get; }
 
-        public MemoryRedlockInstance(string name)
+        public MemoryRedlockInstance(string name, MinValidityDelegate minValidity)
         {
             Name = name;
+            _minValidity = minValidity;
         }
+        
         private readonly Dictionary<string, string> _data = new Dictionary<string, string>();
         private readonly Dictionary<string, CancellationTokenSource> _unlockTaskCancellations = new Dictionary<string, CancellationTokenSource>();
-            
+        public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration) => _minValidity(lockTimeToLive, lockingDuration);
+
         public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive)
         {
             lock (this)
@@ -124,7 +131,7 @@ namespace TestUtils
             }
         }
             
-        public static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)
+        public static void Lock(string key, string nonce, ImmutableArray<MemoryRedlockInstance> instances)
         {
             foreach (var instance in instances)
             {
@@ -135,7 +142,7 @@ namespace TestUtils
             }
         }
         
-        public static void Unlock(string key, params MemoryRedlockInstance[] instances)
+        public static void Unlock(string key, ImmutableArray<MemoryRedlockInstance> instances)
         {
             foreach (var instance in instances)
             {
@@ -143,9 +150,12 @@ namespace TestUtils
             }
         }
 
-        public override string ToString()
-        {
-            return $"mem:{Name}";
-        }
+        public override string ToString() => $"mem:{Name}";
+
+        public static MemoryRedlockInstance Create(string name) => Create(name, (ttl, duration) => ttl - duration);
+        public static MemoryRedlockInstance Create(int i) => Create(i.ToString());
+        
+        public static MemoryRedlockInstance Create(string name, MinValidityDelegate minValidity) 
+            => new MemoryRedlockInstance(name, minValidity);
     }
 }

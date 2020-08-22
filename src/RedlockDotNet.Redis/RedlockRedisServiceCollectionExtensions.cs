@@ -34,7 +34,6 @@ namespace RedlockDotNet.Redis
             b.Services.AddOptions();
             b.Services.AddLogging();
             build(new RedisRedlockBuilder(b.Services));
-            b.Services.TryAddSingleton<IRedlockImplementation, RedisRedlockImplementation>();
             return b.Services;
         }
 
@@ -57,25 +56,8 @@ namespace RedlockDotNet.Redis
             {
                 var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
                 var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
-                return RedisRedlockInstance.Create(connect(), key, database, name, logger);
-            });
-            return b;
-        }
-        
-        /// <summary>
-        /// Add lock instance to di
-        /// </summary>
-        /// <param name="b"></param>
-        /// <param name="connect"><see cref="IConnectionMultiplexer"/> factory</param>
-        /// <param name="database">Database number on instance</param>
-        /// <returns></returns>
-        public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, Func<IConnectionMultiplexer> connect, int database)
-        {
-            b.Services.AddSingleton(p =>
-            {
-                var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
-                var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
-                return RedisRedlockInstance.Create(connect(), key, database, logger);
+                var clockDriftFactor = p.GetRequiredService<IOptions<RedlockOptions>>().Value.ClockDriftFactor;
+                return RedisRedlockInstance.Create(connect(), key, database, name, clockDriftFactor, logger);
             });
             return b;
         }
@@ -89,12 +71,7 @@ namespace RedlockDotNet.Redis
         /// <returns></returns>
         public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, Func<IConnectionMultiplexer> connect, string name)
         {
-            b.Services.AddSingleton(p =>
-            {
-                var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
-                var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
-                return RedisRedlockInstance.Create(connect(), key, name, logger);
-            });
+            b.AddInstance(connect, -1, name);
             return b;
         }
         
@@ -106,11 +83,13 @@ namespace RedlockDotNet.Redis
         /// <returns></returns>
         public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, Func<IConnectionMultiplexer> connect)
         {
+            
             b.Services.AddSingleton(p =>
             {
                 var logger = p.GetRequiredService<ILogger<RedisRedlockInstance>>();
                 var key = p.GetRequiredService<IOptions<RedisRedlockOptions>>().Value.RedisKeyFromResourceName;
-                return RedisRedlockInstance.Create(connect(), key, logger);
+                var clockDriftFactor = p.GetRequiredService<IOptions<RedlockOptions>>().Value.ClockDriftFactor;
+                return RedisRedlockInstance.Create(connect(), key, clockDriftFactor, logger);
             });
             return b;
         }
@@ -136,26 +115,6 @@ namespace RedlockDotNet.Redis
         /// <returns></returns>
         public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, ConfigurationOptions opt, int database, string name) 
             => b.AddInstance(() => ConnectionMultiplexer.Connect(opt), database, name);
-        
-        /// <summary>
-        /// Add lock instance to di
-        /// </summary>
-        /// <param name="b"></param>
-        /// <param name="connection">Connection string for <see cref="ConnectionMultiplexer.Connect(string,System.IO.TextWriter)"/></param>
-        /// <param name="database">Database number on instance</param>
-        /// <returns></returns>
-        public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, string connection, int database) 
-            => b.AddInstance(() => ConnectionMultiplexer.Connect(connection), database);
-        
-        /// <summary>
-        /// Add lock instance to di
-        /// </summary>
-        /// <param name="b"></param>
-        /// <param name="opt">Options for <see cref="ConnectionMultiplexer.Connect(ConfigurationOptions,System.IO.TextWriter)"/></param>
-        /// <param name="database">Database number on instance</param>
-        /// <returns></returns>
-        public static IRedisRedlockBuilder AddInstance(this IRedisRedlockBuilder b, ConfigurationOptions opt, int database) 
-            => b.AddInstance(() => ConnectionMultiplexer.Connect(opt), database);
         
         
         /// <summary>

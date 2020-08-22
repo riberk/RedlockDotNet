@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,16 +12,16 @@ namespace RedlockDotNet
 {
     public class RedlockFactoryTests
     {
-        private readonly MemoryRedlockInstance[] _mem;
+        private readonly ImmutableArray<MemoryRedlockInstance> _mem;
         private readonly TestRedlockFactory _f;
         private readonly DateTime _expectedValidUntil;
 
         public RedlockFactoryTests()
         {
-            _mem = TestRedlockImpl.CreateInstances(3, (i) => new MemoryRedlockInstance(i.ToString()));
-            var now = new DateTime(2020, 07, 08, 1, 2, 3, DateTimeKind.Utc);
             var minValidity = TimeSpan.FromSeconds(10);
-            var impl = TestRedlockImpl.Create(_mem, (ttl, duration) => minValidity);
+            _mem = TestRedlock.Instances(3, i => new MemoryRedlockInstance(i.ToString(), (ttl, duration) => minValidity));
+            var now = new DateTime(2020, 07, 08, 1, 2, 3, DateTimeKind.Utc);
+            var impl = TestRedlockImplementation.Create(_mem);
             _expectedValidUntil = new DateTime(2020, 07, 08, 1, 2, 13, DateTimeKind.Utc);
             _f = new TestRedlockFactory(impl, () => now, NullLogger<RedlockFactory>.Instance);
         }

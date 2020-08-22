@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -26,7 +27,7 @@ namespace RedlockDotNet
         /// </summary>
         public DateTime ValidUntilUtc { get; }
 
-        private readonly IRedlockImplementation _implementation;
+        private readonly ImmutableArray<IRedlockInstance> _instances;
         private readonly ILogger _logger;
 
         /// <summary>
@@ -37,7 +38,7 @@ namespace RedlockDotNet
             string nonce,
             TimeSpan ttl,
             DateTime validUntilUtc,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger
         )
         {
@@ -45,7 +46,7 @@ namespace RedlockDotNet
             Nonce = nonce;
             Ttl = ttl;
             ValidUntilUtc = validUntilUtc;
-            _implementation = implementation;
+            _instances = instances;
             _logger = logger;
         }
 
@@ -58,7 +59,8 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="instances">Instances for acquirement of a lock</param>
+
         /// <param name="logger"></param>
         /// <param name="utcNow"></param>
         /// <returns>Lock object or null if it failed</returns>
@@ -66,23 +68,23 @@ namespace RedlockDotNet
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             Func<DateTime>? utcNow = null
         )
         {
             logger.Locking(resource, nonce, lockTimeToLive);
 
-            var lockResult = implementation.Instances.TryLockAll(logger, resource, nonce, lockTimeToLive);
+            var lockResult = instances.TryLockAll(logger, resource, nonce, lockTimeToLive);
 
-            if (lockResult.IsLocked(lockTimeToLive, implementation, utcNow, out var validUntil))
+            if (lockResult.IsLocked(utcNow, out var validUntil))
             {
                 logger.Locked(resource, nonce, lockResult);
-                return new Redlock(resource, nonce, lockTimeToLive, validUntil, implementation, logger);
+                return new Redlock(resource, nonce, lockTimeToLive, validUntil, instances, logger);
             }
 
             logger.UnlockingOnFail(resource, nonce, lockResult);
-            implementation.Instances.UnlockAll(logger, resource, nonce);
+            instances.UnlockAll(logger, resource, nonce);
             logger.UnlockedOnFail(resource, nonce);
             return null;
         }
@@ -97,7 +99,7 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="instances">Instances for acquirement of a lock</param>
         /// <param name="logger"></param>
         /// <param name="utcNow"></param>
         /// <returns>Lock object or null if it failed</returns>
@@ -105,23 +107,23 @@ namespace RedlockDotNet
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             Func<DateTime>? utcNow = null
         )
         {
             logger.Locking(resource, nonce, lockTimeToLive);
-            var lockResult = await implementation.Instances.TryLockAllAsync(logger, resource, nonce, lockTimeToLive)
+            var lockResult = await instances.TryLockAllAsync(logger, resource, nonce, lockTimeToLive)
                 .ConfigureAwait(false);
 
-            if (lockResult.IsLocked(lockTimeToLive, implementation, utcNow, out var validUntil))
+            if (lockResult.IsLocked(utcNow, out var validUntil))
             {
                 logger.Locked(resource, nonce, lockResult);
-                return new Redlock(resource, nonce, lockTimeToLive, validUntil, implementation, logger);
+                return new Redlock(resource, nonce, lockTimeToLive, validUntil, instances, logger);
             }
 
             logger.UnlockingOnFail(resource, nonce, lockResult);
-            await implementation.Instances.UnlockAllAsync(logger, resource, nonce).ConfigureAwait(false);
+            await instances.UnlockAllAsync(logger, resource, nonce).ConfigureAwait(false);
             logger.UnlockedOnFail(resource, nonce);
             return null;
         }
@@ -138,8 +140,8 @@ namespace RedlockDotNet
         )
         {
             _logger.Extending(Resource, Nonce, Ttl, tryReacquire);
-            var lockResult = _implementation.Instances.TryExtendAll(_logger, Resource, Nonce, Ttl, tryReacquire);
-            if (lockResult.IsLocked(Ttl, _implementation, utcNow, out var validUntil))
+            var lockResult = _instances.TryExtendAll(_logger, Resource, Nonce, Ttl, tryReacquire);
+            if (lockResult.IsLocked(utcNow, out var validUntil))
             {
                 _logger.Extended(Resource, Nonce, Ttl, validUntil);
                 return validUntil;
@@ -161,10 +163,10 @@ namespace RedlockDotNet
         )
         {
             _logger.Extending(Resource, Nonce, Ttl, tryReacquire);
-            var lockResult = await _implementation.Instances.TryExtendAllAsync(_logger, Resource, Nonce, Ttl, tryReacquire)
+            var lockResult = await _instances.TryExtendAllAsync(_logger, Resource, Nonce, Ttl, tryReacquire)
                 .ConfigureAwait(false);
 
-            if (lockResult.IsLocked(Ttl, _implementation, utcNow, out var validUntil))
+            if (lockResult.IsLocked(utcNow, out var validUntil))
             {
                 _logger.Extended(Resource, Nonce, Ttl, validUntil);
                 return validUntil;
@@ -184,7 +186,8 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="instances">Instances for acquirement of a lock</param>
+
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
@@ -196,7 +199,7 @@ namespace RedlockDotNet
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             in T repeater,
             int maxWaitMs,
@@ -204,7 +207,7 @@ namespace RedlockDotNet
         ) where T: IRedlockRepeater
         {
             var (redlock, attemptCount) = TryLockInternal(
-                resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs, utcNow
+                resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow
             );
             
             if (redlock != null)
@@ -225,7 +228,8 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="instances">Instances for acquirement of a lock</param>
+
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
@@ -236,19 +240,19 @@ namespace RedlockDotNet
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             in T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
         ) where T : IRedlockRepeater 
-            => TryLockInternal(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs, utcNow).redlock;
+            => TryLockInternal(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow).redlock;
         
         private static (Redlock? redlock, int attemptCount) TryLockInternal<T>(
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             in T repeater,
             int maxWaitMs,
@@ -258,7 +262,7 @@ namespace RedlockDotNet
             var attemptCount = 0;
             while (true)
             {
-                var @lock = TryLock(resource, nonce, lockTimeToLive, implementation, logger, utcNow);
+                var @lock = TryLock(resource, nonce, lockTimeToLive, instances, logger, utcNow);
                 if (@lock != null)
                 {
                     return (@lock.Value, attemptCount);
@@ -358,7 +362,8 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="instances">Instances for acquirement of a lock</param>
+
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
@@ -369,7 +374,7 @@ namespace RedlockDotNet
         public static async Task<Redlock> LockAsync<T>(string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             T repeater,
             int maxWaitMs,
@@ -377,7 +382,7 @@ namespace RedlockDotNet
         ) where T: IRedlockRepeater
         {
             var (redlock, attemptCount) = await TryLockInternalAsync(
-                resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs, utcNow);
+                resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow);
         
             if (redlock != null)
             {
@@ -396,7 +401,8 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="implementation">Options for acquire lock</param>
+        /// <param name="instances">Instances for acquirement of a lock</param>
+
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
@@ -406,18 +412,18 @@ namespace RedlockDotNet
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             T repeater,
             int maxWaitMs
         ) where T: IRedlockRepeater 
-            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, implementation, logger, repeater, maxWaitMs)).redlock;
+            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs)).redlock;
 
         private static async Task<(Redlock? redlock, int attemptCount)> TryLockInternalAsync<T>(
             string resource,
             string nonce,
             TimeSpan lockTimeToLive,
-            IRedlockImplementation implementation,
+            ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             T repeater,
             int maxWaitMs,
@@ -427,7 +433,7 @@ namespace RedlockDotNet
             var attemptCount = 0;
             while (true)
             {
-                var @lock = await TryLockAsync(resource, nonce, lockTimeToLive, implementation, logger, utcNow);
+                var @lock = await TryLockAsync(resource, nonce, lockTimeToLive, instances, logger, utcNow);
                 if (@lock != null)
                 {
                     return (@lock.Value, attemptCount);
@@ -521,17 +527,17 @@ namespace RedlockDotNet
         /// <inheritdoc />
         public void Dispose()
         {
-            _implementation?.Instances.UnlockAll(_logger, Resource, Nonce);
+            _instances.UnlockAll(_logger, Resource, Nonce);
         }
 
         /// <inheritdoc />
         public async ValueTask DisposeAsync()
         {
-            if (_implementation == null)
+            if (_instances == null)
             {
                 return;
             }
-            await _implementation.Instances.UnlockAllAsync(_logger, Resource, Nonce).ConfigureAwait(false);
+            await _instances.UnlockAllAsync(_logger, Resource, Nonce).ConfigureAwait(false);
         }
     }
 }

@@ -4,26 +4,26 @@ namespace RedlockDotNet.Internal
 {
     internal readonly struct LockResult
     {
+        private readonly int _quorum;
+        public static LockResult Empty => new LockResult(0, TimeSpan.Zero, TimeSpan.Zero, 0);
+        
         private static readonly Func<DateTime> DefaultUtcNow = () => DateTime.UtcNow;
-        public LockResult(int lockedCount, long startTimestamp, long endTimestamp)
+        public LockResult(int lockedCount, TimeSpan minValidity, TimeSpan elapsed, int instanceCount)
         {
             LockedCount = lockedCount;
-            StartTimestamp = startTimestamp;
-            EndTimestamp = endTimestamp;
+            MinValidity = minValidity;
+            Elapsed = elapsed;
+            _quorum = instanceCount / 2 + 1;
         }
 
         public int LockedCount { get; }
-        public long StartTimestamp { get; }
-        public long EndTimestamp { get; }
+        public TimeSpan MinValidity { get; }
+        public TimeSpan Elapsed { get; }
 
-        public TimeSpan Elapsed => TimestampHelper.ToTimeSpan(StartTimestamp - EndTimestamp);
-
-        public bool IsLocked(TimeSpan lockTimeToLive, IRedlockImplementation implementation, Func<DateTime>? utcNow, out DateTime validUntilUtc)
+        public bool IsLocked(Func<DateTime>? utcNow, out DateTime validUntilUtc)
         {
-            var quorum = implementation.Instances.Length / 2 + 1;
-            var minValidity = implementation.MinValidity(lockTimeToLive, Elapsed);
-            var res = LockedCount >= quorum && minValidity > TimeSpan.Zero;
-            validUntilUtc = res ? (utcNow ?? DefaultUtcNow)() + minValidity : default;
+            var res = LockedCount >= _quorum && MinValidity > TimeSpan.Zero;
+            validUntilUtc = res ? (utcNow ?? DefaultUtcNow)() + MinValidity : default;
             return res;
         }
 

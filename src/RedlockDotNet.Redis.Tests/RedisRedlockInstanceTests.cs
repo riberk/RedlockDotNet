@@ -17,7 +17,31 @@ namespace RedlockDotNet.Redis.Tests
         {
             _console = console;
             _logger = new MemoryLogger();
-            _instance = new RedisRedlockInstance(Db, s => s, "i", _logger);
+            _instance = new RedisRedlockInstance(Db, s => s, "i", 0.1f, _logger);
+        }
+        
+        [Fact]
+        public void MinValidity_NoClockDriftFactor()
+        {
+            var instance = new RedisRedlockInstance(Db, s => s, "i", 0, _logger);
+            var minValidity = instance.MinValidity(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
+            Assert.Equal(TimeSpan.FromMilliseconds(8998), minValidity);
+        }
+        
+        [Fact]
+        public void MinValidity_ClockDriftFactor()
+        {
+            var instance = new RedisRedlockInstance(Db, s => s, "i", 0.01f, _logger);
+            var minValidity = instance.MinValidity(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
+            Assert.Equal(TimeSpan.FromMilliseconds(8898), minValidity);
+        }
+        
+        [Fact]
+        public void MinValidity_ClockDriftFactor03()
+        {
+            var instance = new RedisRedlockInstance(Db, s => s, "i", 0.5f, _logger);
+            var minValidity = instance.MinValidity(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1));
+            Assert.Equal(TimeSpan.FromMilliseconds(3998), minValidity);
         }
 
         [Fact]

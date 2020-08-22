@@ -9,6 +9,14 @@ namespace RedlockDotNet
     public interface IRedlockInstance
     {
         /// <summary>
+        /// Calculate min validity time of lock
+        /// </summary>
+        /// <param name="lockTimeToLive">Ttl of lock on the server</param>
+        /// <param name="lockingDuration">Elapsed time from start of locking on first server to end on last server</param>
+        /// <returns>Minimum validity time of acquired lock</returns>
+        TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration);
+        
+        /// <summary>
         /// Try acquire lock resource on server
         /// </summary>
         /// <param name="resource">Resource to lock</param>

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using RedlockDotNet.Repeaters;
 using TestUtils;
 using Xunit;
@@ -13,31 +13,30 @@ namespace RedlockDotNet.Redis.Tests
 {
     public class RedisRedlockIntegrationTests : RedisTestBase, IDisposable
     {
-        private readonly RedisRedlockImplementation _5Inst;
+        private readonly ImmutableArray<IRedlockInstance> _5Inst;
         private readonly MemoryLogger _log;
-        private readonly RedisRedlockImplementation _noQuorum;
+        private readonly ImmutableArray<IRedlockInstance> _noQuorum;
         private readonly ITestOutputHelper _console;
 
         public RedisRedlockIntegrationTests(RedisFixture redis, ITestOutputHelper console) : base(redis)
         {
             _console = console;
-            var opt = new RedlockOptions();
             _log = new MemoryLogger();
-            _5Inst = new RedisRedlockImplementation(new []
+            _5Inst = new IRedlockInstance[]
             {
-                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), s => s, "1", _log),
-                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), s => s, "2", _log),
-                new RedisRedlockInstance(() => Redis.Redis3.GetDatabase(), s => s, "3", _log),
-                new RedisRedlockInstance(() => Redis.Redis4.GetDatabase(), s => s, "4", _log),
-                new RedisRedlockInstance(() => Redis.Redis5.GetDatabase(), s => s, "5", _log),
-            }, Options.Create(opt));
-            _noQuorum = new RedisRedlockImplementation(new []
+                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), s => s, "1", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), s => s, "2", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Redis3.GetDatabase(), s => s, "3", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Redis4.GetDatabase(), s => s, "4", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Redis5.GetDatabase(), s => s, "5", 0.1f, _log),
+            }.ToImmutableArray();
+            _noQuorum = new IRedlockInstance[]
             {
-                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), s => s, "1", _log),
-                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), s => s, "2", _log),
-                new RedisRedlockInstance(() => Redis.Unreachable1.GetDatabase(), s => s, "u1", _log),
-                new RedisRedlockInstance(() => Redis.Unreachable2.GetDatabase(), s => s, "u2", _log),
-            }, Options.Create(opt));
+                new RedisRedlockInstance(() => Redis.Redis1.GetDatabase(), s => s, "1", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Redis2.GetDatabase(), s => s, "2", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Unreachable1.GetDatabase(), s => s, "u1", 0.1f, _log),
+                new RedisRedlockInstance(() => Redis.Unreachable2.GetDatabase(), s => s, "u2", 0.1f, _log),
+            }.ToImmutableArray();
         }
 
         [Fact]
@@ -105,8 +104,8 @@ namespace RedlockDotNet.Redis.Tests
         [Fact]
         public void TimeoutExpires_ThenNewLockCanBeObtained()
         {
-            using var l1 = Redlock.Lock("r", "n1", TimeSpan.FromSeconds(1), _5Inst, _log, NoopRedlockRepeater.Instance, 50);
-            Thread.Sleep(1000);
+            using var l1 = Redlock.Lock("r", "n1", TimeSpan.FromSeconds(0.5), _5Inst, _log, NoopRedlockRepeater.Instance, 50);
+            Thread.Sleep(800);
             using var l2 = Redlock.Lock("r", "n2", TimeSpan.FromSeconds(1), _5Inst, _log, NoopRedlockRepeater.Instance, 50);
         }
 

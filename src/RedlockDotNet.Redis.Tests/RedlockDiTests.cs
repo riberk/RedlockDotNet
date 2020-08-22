@@ -84,9 +84,6 @@ namespace RedlockDotNet.Redis.Tests
         public static void AddInstanceByConnectionString() => AssertAddInstance(b => b.AddInstance(Connection, 5, "i1"), "i1", 5);
 
         [Fact]
-        public static void AddInstanceByConnectionString_DefaultName() => AssertAddInstance(b => b.AddInstance(Connection, 5), "0.0.0.1:6001", 5);
-
-        [Fact]
         public static void AddInstanceByConnectionString_DefaultDb() => AssertAddInstance(b => b.AddInstance(Connection, "i"), "i", 0);
 
         [Fact]
@@ -94,9 +91,6 @@ namespace RedlockDotNet.Redis.Tests
 
         [Fact]
         public static void AddInstanceByConf() => AssertAddInstance(b => b.AddInstance(Options, 5, "i1"), "i1", 5);
-
-        [Fact]
-        public static void AddInstanceByConf_DefaultName() => AssertAddInstance(b => b.AddInstance(Options, 5), "0.0.0.1:6001", 5);
 
         [Fact]
         public static void AddInstanceByConf_DefaultDb() => AssertAddInstance(b => b.AddInstance(Options, "i"), "i", 0);
