@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using StackExchange.Redis;
 using TestUtils;
@@ -48,26 +50,50 @@ namespace RedlockDotNet.Redis.Tests
         public void TryLock()
         {
             Assert.True(_instance.TryLock("r", "n", TimeSpan.FromSeconds(10)));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("n", result.Value);
-            Assert.NotNull(result.Expiry);
-            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+            var result = Get("r");
+            Assert.Equal("n", result!.Nonce);
+            Assert.NotNull(result.Ttl);
+            Assert.Empty(result.Metadata);
+            Assert.InRange(result.Ttl!.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
         }
         
         [Fact]
         public async Task TryLockAsync()
         {
             Assert.True(await _instance.TryLockAsync("r", "n", TimeSpan.FromSeconds(10)));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("n", result.Value);
-            Assert.NotNull(result.Expiry);
-            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+            var result = Get("r");
+            Assert.Equal("n", result!.Nonce);
+            Assert.NotNull(result.Ttl);
+            Assert.Empty(result.Metadata);
+            Assert.InRange(result.Ttl!.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+        }
+        
+        [Fact]
+        public void TryLock_Meta()
+        {
+            Assert.True(_instance.TryLock("r", "n", TimeSpan.FromSeconds(10), new Dictionary<string, string>{["a"] = "b"}));
+            var result = Get("r");
+            Assert.Equal("n", result!.Nonce);
+            Assert.NotNull(result.Ttl);
+            Assert.Equal("b", result.Metadata["a"]);
+            Assert.InRange(result.Ttl!.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+        }
+        
+        [Fact]
+        public async Task TryLockAsync_Meta()
+        {
+            Assert.True(await _instance.TryLockAsync("r", "n", TimeSpan.FromSeconds(10), new Dictionary<string, string>{["a"] = "b"}));
+            var result = Get("r");
+            Assert.Equal("n", result!.Nonce);
+            Assert.NotNull(result.Ttl);
+            Assert.Equal("b", result.Metadata["a"]);
+            Assert.InRange(result.Ttl!.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
         }
 
         [Fact]
         public void Unlock_Owner()
         {
-            Db().StringSet("r", "n");
+            Set("r", "n");
             _instance.Unlock("r", "n");
             Assert.False(Db().KeyExists("r"));
         }
@@ -75,7 +101,7 @@ namespace RedlockDotNet.Redis.Tests
         [Fact]
         public void Unlock_NotOwner()
         {
-            Db().StringSet("r", "n");
+            Set("r", "n");
             _instance.Unlock("r", "n111");
             Assert.True(Db().KeyExists("r"));
         }
@@ -84,7 +110,7 @@ namespace RedlockDotNet.Redis.Tests
         [Fact]
         public async Task UnlockAsync_Owner()
         {
-            Db().StringSet("r", "n");
+            Set("r", "n");
             await _instance.UnlockAsync("r", "n");
             Assert.False(Db().KeyExists("r"));
         }
@@ -92,7 +118,7 @@ namespace RedlockDotNet.Redis.Tests
         [Fact]
         public async Task UnlockAsync_NotOwner()
         {
-            Db().StringSet("r", "n");
+            Set("r", "n");
             await _instance.UnlockAsync("r", "n111");
             Assert.True(Db().KeyExists("r"));
         }
@@ -100,81 +126,93 @@ namespace RedlockDotNet.Redis.Tests
         [Fact]
         public void TryExtend_Owner()
         {
-            Db().StringSet("r", "n", TimeSpan.FromSeconds(5));
-            Assert.Equal(ExtendResult.Extend, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), false));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("n", result.Value);
-            Assert.NotNull(result.Expiry);
-            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+            Set("r", "n", TimeSpan.FromSeconds(5));
+            Assert.Equal(ExtendResult.Extend, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10)));
+            var result = Get("r");
+            Assert.Equal("n", result!.Nonce);
+            Assert.NotNull(result.Ttl);
+            Assert.InRange(result.Ttl!.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
         }
         
         [Fact]
-        public void TryExtend_Owner_Reacquire()
+        public void TryExtend_Owner_Fail()
         {
-            Assert.Equal(ExtendResult.Reacquire, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), true));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("n", result.Value);
-            Assert.NotNull(result.Expiry);
-            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
-        }
-        
-        [Fact]
-        public void TryExtend_Owner_ReacquireFail()
-        {
-            Assert.Equal(ExtendResult.IllegalReacquire, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), false));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.False(result.Value.HasValue);
+            Assert.Equal(ExtendResult.IllegalReacquire, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10)));
+            var result = Get("r");
+            Assert.Null(result);
         }
         
         [Fact]
         public void TryExtend_NotOwner()
         {
-            Db().StringSet("r", "nnnnn");
-            Assert.Equal(ExtendResult.AlreadyAcquiredByAnotherOwner, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10), false));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("nnnnn", result.Value);
-            Assert.Null(result.Expiry);
+            Set("r", "nnnnn");
+            Assert.Equal(ExtendResult.AlreadyAcquiredByAnotherOwner, _instance.TryExtend("r", "n", TimeSpan.FromSeconds(10)));
+            var result = Get("r");
+            Assert.Equal("nnnnn", result!.Nonce);
+            Assert.Null(result.Ttl);
         }
         
         
         [Fact]
         public async Task TryExtendAsync_Owner()
         {
-            Db().StringSet("r", "n", TimeSpan.FromSeconds(5));
-            Assert.Equal(ExtendResult.Extend, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), false));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("n", result.Value);
-            Assert.NotNull(result.Expiry);
-            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
+            Set("r", "n", TimeSpan.FromSeconds(5));
+            Assert.Equal(ExtendResult.Extend, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10)));
+            var result = Get("r");
+            Assert.Equal("n", result!.Nonce);
+            Assert.NotNull(result.Ttl);
+            Assert.InRange(result.Ttl!.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
         }
         
         [Fact]
-        public async Task TryExtendAsync_Owner_Reacquire()
+        public async Task TryExtendAsync_Owner_Fail()
         {
-            Assert.Equal(ExtendResult.Reacquire, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), true));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("n", result.Value);
-            Assert.NotNull(result.Expiry);
-            Assert.InRange(result.Expiry.Value, TimeSpan.FromSeconds(9.5), TimeSpan.FromSeconds(10));
-        }
-        
-        [Fact]
-        public async Task TryExtendAsync_Owner_ReacquireFail()
-        {
-            Assert.Equal(ExtendResult.IllegalReacquire, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), false));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.False(result.Value.HasValue);
+            Assert.Equal(ExtendResult.IllegalReacquire, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10)));
+            var result = Get("r");
+            Assert.Null(result);
         }
         
         [Fact]
         public async Task TryExtendAsync_NotOwner()
         {
-            Db().StringSet("r", "nnnnn");
-            Assert.Equal(ExtendResult.AlreadyAcquiredByAnotherOwner, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10), false));
-            var result = Db().StringGetWithExpiry("r");
-            Assert.Equal("nnnnn", result.Value);
-            Assert.Null(result.Expiry);
+            Set("r", "nnnnn");
+            Assert.Equal(ExtendResult.AlreadyAcquiredByAnotherOwner, await _instance.TryExtendAsync("r", "n", TimeSpan.FromSeconds(10)));
+            var result = Get("r");
+            Assert.Equal("nnnnn", result!.Nonce);
+            Assert.Null(result.Ttl);
         }
+        
+        [Fact]
+        public void GetInfo()
+        {
+            Set("r", "nnnnn", TimeSpan.FromMinutes(10), new Dictionary<string, string>{["a"] = "b"});
+            var info = _instance.GetInfo("r");
+            Assert.Equal("nnnnn", info!.Nonce);
+            Assert.InRange(info.Ttl!.Value, TimeSpan.FromMinutes(9.5), TimeSpan.FromMinutes(10));
+            Assert.Equal("b", info.Metadata["a"]);
+        }
+        
+        [Fact]
+        public async Task GetInfoAsync()
+        {
+            Set("r", "nnnnn", TimeSpan.FromMinutes(10), new Dictionary<string, string>{["a"] = "b"});
+            var info = await _instance.GetInfoAsync("r");
+            Assert.Equal("nnnnn", info!.Nonce);
+            Assert.InRange(info.Ttl!.Value, TimeSpan.FromMinutes(9.5), TimeSpan.FromMinutes(10));
+            Assert.Equal("b", info.Metadata["a"]);
+        }
+
+        private void Set(string resource, string nonce, TimeSpan? expiry = null, IReadOnlyDictionary<string, string>? meta = null)
+        {
+            Db().HashSet(resource, "nonce", nonce);
+            if (meta != null)
+            {
+                Db().HashSet(resource, meta.Select(x => new HashEntry(x.Key, x.Value)).ToArray());
+            }
+            Db().KeyExpire(resource, expiry);
+        }
+        
+        private InstanceLockInfo? Get(string resource) => _instance.GetInfo(resource);
 
         private IDatabase Db()
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
@@ -41,7 +42,8 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive
+            TimeSpan lockTimeToLive,
+            IReadOnlyDictionary<string, string>? metadata = null
         )
         {
             if (instances.IsDefaultOrEmpty)
@@ -53,7 +55,7 @@ namespace RedlockDotNet.Internal
             var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             Parallel.ForEach(instances, instance =>
             {
-                if (instance.TryLockSafe(logger, resource, nonce, lockTimeToLive))
+                if (instance.TryLockSafe(logger, resource, nonce, lockTimeToLive, metadata))
                 {
                     Interlocked.Increment(ref lockedCount);
                 }
@@ -66,7 +68,8 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive
+            TimeSpan lockTimeToLive,
+            IReadOnlyDictionary<string, string>? metadata = null
         )
         {
             if (instances.IsDefaultOrEmpty)
@@ -76,7 +79,7 @@ namespace RedlockDotNet.Internal
 
             var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             var tasks = instances.Select(
-                async x => await x.TryLockSafeAsync(logger, resource, nonce, lockTimeToLive).ConfigureAwait(false) ? 1 : 0
+                async x => await x.TryLockSafeAsync(logger, resource, nonce, lockTimeToLive, metadata).ConfigureAwait(false) ? 1 : 0
             );
             return lockResultBuilder.End((await Task.WhenAll(tasks).ConfigureAwait(false)).Sum());
         }
@@ -86,8 +89,7 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive,
-            bool tryReacquire
+            TimeSpan lockTimeToLive
         )
         {
             if (instances.IsDefaultOrEmpty)
@@ -99,7 +101,7 @@ namespace RedlockDotNet.Internal
             var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             Parallel.ForEach(instances, i =>
             {
-                if (i.TryExtendSafe(logger, resource, nonce, lockTimeToLive, tryReacquire))
+                if (i.TryExtendSafe(logger, resource, nonce, lockTimeToLive))
                 {
                     Interlocked.Increment(ref lockedCount);
                 }
@@ -112,8 +114,7 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive,
-            bool tryReacquire
+            TimeSpan lockTimeToLive
         )
         {
             if (instances.IsDefaultOrEmpty)
@@ -123,7 +124,7 @@ namespace RedlockDotNet.Internal
             
             var lockResultBuilder = LockResultBuilder.Start(instances, lockTimeToLive);
             var tasks = instances.Select(
-                async x => await x.TryExtendSafeAsync(logger, resource, nonce, lockTimeToLive, tryReacquire).ConfigureAwait(false) ? 1 : 0
+                async x => await x.TryExtendSafeAsync(logger, resource, nonce, lockTimeToLive).ConfigureAwait(false) ? 1 : 0
             );
             return lockResultBuilder.End((await Task.WhenAll(tasks).ConfigureAwait(false)).Sum());
         }
@@ -133,12 +134,13 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive
+            TimeSpan lockTimeToLive,
+            IReadOnlyDictionary<string, string>? metadata = null
         )
         {
             try
             {
-                return instance.TryLock(resource, nonce, lockTimeToLive);
+                return instance.TryLock(resource, nonce, lockTimeToLive, metadata);
             }
             catch (Exception e)
             {
@@ -152,12 +154,13 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive
+            TimeSpan lockTimeToLive,
+            IReadOnlyDictionary<string, string>? metadata = null
         )
         {
             try
             {
-                return await instance.TryLockAsync(resource, nonce, lockTimeToLive).ConfigureAwait(false);
+                return await instance.TryLockAsync(resource, nonce, lockTimeToLive, metadata).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -205,13 +208,12 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive,
-            bool tryReacquire
+            TimeSpan lockTimeToLive
         )
         {
             try
             {
-                return instance.TryExtend(resource, nonce, lockTimeToLive, tryReacquire).IsSuccess();
+                return instance.TryExtend(resource, nonce, lockTimeToLive).IsSuccess();
             }
             catch (Exception e)
             {
@@ -225,13 +227,12 @@ namespace RedlockDotNet.Internal
             ILogger logger,
             string resource,
             string nonce,
-            TimeSpan lockTimeToLive,
-            bool tryReacquire
+            TimeSpan lockTimeToLive
         )
         {
             try
             {
-                return (await instance.TryExtendAsync(resource, nonce, lockTimeToLive, tryReacquire).ConfigureAwait(false)).IsSuccess();
+                return (await instance.TryExtendAsync(resource, nonce, lockTimeToLive).ConfigureAwait(false)).IsSuccess();
             }
             catch (Exception e)
             {

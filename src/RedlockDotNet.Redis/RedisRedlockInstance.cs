@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -31,34 +32,49 @@ namespace RedlockDotNet.Redis
 
         // ReSharper disable once ConvertToConstant.Local
         private static readonly string UnlockLua = @"
-if redis.call('get', KEYS[1]) == ARGV[1] then
+if redis.call('hget', KEYS[1], 'nonce') == ARGV[1] then
   return redis.call('del', KEYS[1])
 else
   return 0
 end
 ";
-        
         // ReSharper disable once ConvertToConstant.Local
         /// <summary>
         /// KEYS[1] is locking resource redis key
         /// ARGV[1] is nonce
         /// ARGV[2] is lock time to live in milliseconds
-        /// ARGV[3] is (tryReacquire ? 1 : 0)
         /// result is <see cref="ExtendResult"/>
         /// </summary>
         private static readonly string ExtendLua = @"
-local currentVal = redis.call('get', KEYS[1])
-if (currentVal == false) then
-  if(ARGV[3] == ""1"") then  
-    return redis.call('set', KEYS[1], ARGV[1], 'PX', ARGV[2]) and 2 or 0
-  else
-    return -2
-  end
+local currentVal = redis.call('hget', KEYS[1], 'nonce')
+if currentVal == false then
+  return -2
 elseif (currentVal == ARGV[1]) then
   redis.call('pexpire', KEYS[1], ARGV[2])
   return 1
 else
   return -1
+end
+";
+        
+        
+        // ReSharper disable once ConvertToConstant.Local
+        /// <summary>
+        /// KEYS[1] is locking resource redis key
+        /// KEYS[2] is nonce
+        /// ARGV[1] is ttl
+        /// ARGV[2..n] is metadata ARGV[2] - key, ARGV[3] - value, etc
+        /// </summary>
+        private static readonly string SetLua = @"
+local currentVal = redis.call('hget', KEYS[1], 'nonce')
+if currentVal == false then
+  local ttl = ARGV[1]
+  table.remove(ARGV, 1)
+  redis.call('hset', KEYS[1], 'nonce', KEYS[2], unpack(ARGV))
+  redis.call('pexpire', KEYS[1], ttl)
+  return true
+else
+  return false
 end
 ";
 
@@ -83,19 +99,42 @@ end
 
 
         /// <inheritdoc />
-        public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive)
+        public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
         {
             var key = Key(resource);
             _logger.TryLock(resource, nonce, _name, lockTimeToLive, key);
-            return SelectDb().StringSet(key, nonce, lockTimeToLive, When.NotExists, CommandFlags.DemandMaster);
+            var keys = new RedisKey[] {key, nonce,};
+            var argv = RedisValuesForLock(lockTimeToLive, metadata);
+            var res = (bool) SelectDb().ScriptEvaluate(SetLua, keys, argv, CommandFlags.DemandMaster);
+            return res;
         }
 
         /// <inheritdoc />
-        public Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive)
+        public async Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
         {
             var key = Key(resource);
             _logger.TryLock(resource, nonce, _name, lockTimeToLive, key);
-            return SelectDb().StringSetAsync(key, nonce, lockTimeToLive, When.NotExists, CommandFlags.DemandMaster);
+            var keys = new RedisKey[] {key, nonce,};
+            var argv = RedisValuesForLock(lockTimeToLive, metadata);
+            var res = (bool) await SelectDb().ScriptEvaluateAsync(SetLua, keys, argv, CommandFlags.DemandMaster).ConfigureAwait(false);
+            return res;
+        }
+
+        private static RedisValue[] RedisValuesForLock(TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata)
+        {
+            var argv = new RedisValue[(metadata?.Count ?? 0)*2 + 1];
+            argv[0] = lockTimeToLive.TotalMilliseconds;
+            var i = 1;
+            if(metadata != null)
+            {
+                foreach (var (k, v) in metadata)
+                {
+                    argv[i++] = k;
+                    argv[i++] = v;
+                }
+            }
+
+            return argv;
         }
 
         /// <inheritdoc />
@@ -120,35 +159,82 @@ end
         }
 
         /// <inheritdoc />
-        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive)
         {
             var key = Key(resource);
-            _logger.TryExtendLock(resource, nonce, _name, lockTimeToLive, tryReacquire, key);
+            _logger.TryExtendLock(resource, nonce, _name, lockTimeToLive, key);
             var scriptEvaluateResult = SelectDb()
                 .ScriptEvaluate(ExtendLua, new RedisKey[] {key}, new RedisValue[]
                 {
                     nonce,
                     (long) lockTimeToLive.TotalMilliseconds,
-                    tryReacquire ? 1 : 0
                 });
             _logger.ExtendScriptExecuted(resource, nonce, _name, lockTimeToLive, key, scriptEvaluateResult);
             return (ExtendResult) (int) scriptEvaluateResult;
         }
 
         /// <inheritdoc />
-        public async Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        public async Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive)
         {
             var key = Key(resource);
-            _logger.TryExtendLock(resource, nonce, _name, lockTimeToLive, tryReacquire, key);
+            _logger.TryExtendLock(resource, nonce, _name, lockTimeToLive, key);
             var scriptEvaluateResult = await SelectDb()
                 .ScriptEvaluateAsync(ExtendLua, new RedisKey[] {key}, new RedisValue[]
                 {
                     nonce,
                     (long) lockTimeToLive.TotalMilliseconds,
-                    tryReacquire ? 1 : 0
                 });
             _logger.ExtendScriptExecuted(resource, nonce, _name, lockTimeToLive, key, scriptEvaluateResult);
             return (ExtendResult) (int) scriptEvaluateResult;
+        }
+
+        /// <inheritdoc />
+        public InstanceLockInfo? GetInfo(string resource)
+        {
+            var (transaction, entriesTask, ttlTask) = InfoTransactionTasks(resource);
+            if (!transaction.Execute())
+            {
+                throw new InvalidOperationException("Transaction return false");
+            }
+            return ToInstanceLockInfo(resource, ttlTask, entriesTask);
+        }
+
+        /// <inheritdoc />
+        public async Task<InstanceLockInfo?> GetInfoAsync(string resource)
+        {
+            var (transaction, entriesTask, ttlTask) = InfoTransactionTasks(resource);
+            if (!await transaction.ExecuteAsync())
+            {
+                throw new InvalidOperationException("Transaction return false");
+            }
+            return ToInstanceLockInfo(resource, ttlTask, entriesTask);
+        }
+
+        private (ITransaction, Task<HashEntry[]> entriesTask, Task<TimeSpan?> ttlTask) InfoTransactionTasks(string resource)
+        {
+            var key = Key(resource);
+            var db = SelectDb();
+            var transaction = db.CreateTransaction();
+            var entriesTask = transaction.HashGetAllAsync(key);
+            var ttlTask = transaction.KeyTimeToLiveAsync(key);
+            return (transaction, entriesTask, ttlTask);
+        }
+        
+        private static InstanceLockInfo? ToInstanceLockInfo(string resource, Task<TimeSpan?> ttlTask, Task<HashEntry[]> entriesTask)
+        {
+            var entries = entriesTask.Result;
+            if (!entries.Any())
+            {
+                return null;
+            }
+
+            var meta = entries.ToDictionary(x => (string) x.Name, x => (string) x.Value);
+            if (!meta.Remove("nonce", out var nonce))
+            {
+                throw new InvalidOperationException($"Nonce not found in {resource}");
+            }
+
+            return new InstanceLockInfo(nonce, meta, ttlTask.Result);
         }
 
         /// <summary>

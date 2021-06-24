@@ -7,7 +7,6 @@ namespace RedlockDotNet
     {
         [Theory]
         [InlineData(ExtendResult.Extend, false)]
-        [InlineData(ExtendResult.Reacquire, false)]
         [InlineData(ExtendResult.IllegalReacquire, true)]
         [InlineData(ExtendResult.AlreadyAcquiredByAnotherOwner, true)]
         public void IsFail(ExtendResult result, bool expectedIsFail)
@@ -17,7 +16,6 @@ namespace RedlockDotNet
         
         [Theory]
         [InlineData(ExtendResult.Extend, true)]
-        [InlineData(ExtendResult.Reacquire, true)]
         [InlineData(ExtendResult.IllegalReacquire, false)]
         [InlineData(ExtendResult.AlreadyAcquiredByAnotherOwner, false)]
         public void IsSuccess(ExtendResult result, bool expectedIsSuccess)

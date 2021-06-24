@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -63,6 +64,7 @@ namespace RedlockDotNet
 
         /// <param name="logger"></param>
         /// <param name="utcNow"></param>
+        /// <param name="metadata"></param>
         /// <returns>Lock object or null if it failed</returns>
         public static Redlock? TryLock(
             string resource,
@@ -70,12 +72,13 @@ namespace RedlockDotNet
             TimeSpan lockTimeToLive,
             ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         )
         {
             logger.Locking(resource, nonce, lockTimeToLive);
 
-            var lockResult = instances.TryLockAll(logger, resource, nonce, lockTimeToLive);
+            var lockResult = instances.TryLockAll(logger, resource, nonce, lockTimeToLive, metadata);
 
             if (lockResult.IsLocked(utcNow, out var validUntil))
             {
@@ -102,6 +105,7 @@ namespace RedlockDotNet
         /// <param name="instances">Instances for acquirement of a lock</param>
         /// <param name="logger"></param>
         /// <param name="utcNow"></param>
+        /// <param name="metadata"></param>
         /// <returns>Lock object or null if it failed</returns>
         public static async Task<Redlock?> TryLockAsync(
             string resource,
@@ -109,11 +113,12 @@ namespace RedlockDotNet
             TimeSpan lockTimeToLive,
             ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         )
         {
             logger.Locking(resource, nonce, lockTimeToLive);
-            var lockResult = await instances.TryLockAllAsync(logger, resource, nonce, lockTimeToLive)
+            var lockResult = await instances.TryLockAllAsync(logger, resource, nonce, lockTimeToLive, metadata)
                 .ConfigureAwait(false);
 
             if (lockResult.IsLocked(utcNow, out var validUntil))
@@ -131,39 +136,31 @@ namespace RedlockDotNet
         /// <summary>
         /// Try extend current lock
         /// </summary>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <param name="utcNow"></param>
         /// <returns>New ValidUntil or null if extension failed</returns>
-        public DateTime? TryExtend(
-            bool tryReacquire,
-            Func<DateTime>? utcNow = null
-        )
+        public DateTime? TryExtend(Func<DateTime>? utcNow = null)
         {
-            _logger.Extending(Resource, Nonce, Ttl, tryReacquire);
-            var lockResult = _instances.TryExtendAll(_logger, Resource, Nonce, Ttl, tryReacquire);
+            _logger.Extending(Resource, Nonce, Ttl);
+            var lockResult = _instances.TryExtendAll(_logger, Resource, Nonce, Ttl);
             if (lockResult.IsLocked(utcNow, out var validUntil))
             {
                 _logger.Extended(Resource, Nonce, Ttl, validUntil);
                 return validUntil;
             }
 
-            _logger.ExtendFail(Resource, Nonce, Ttl, tryReacquire);
+            _logger.ExtendFail(Resource, Nonce, Ttl);
             return null;
         }
 
         /// <summary>
         /// Try extend current lock
         /// </summary>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <param name="utcNow"></param>
         /// <returns>New ValidUntil or null if extension failed</returns>
-        public async Task<DateTime?> TryExtendAsync(
-            bool tryReacquire,
-            Func<DateTime>? utcNow = null
-        )
+        public async Task<DateTime?> TryExtendAsync(Func<DateTime>? utcNow = null)
         {
-            _logger.Extending(Resource, Nonce, Ttl, tryReacquire);
-            var lockResult = await _instances.TryExtendAllAsync(_logger, Resource, Nonce, Ttl, tryReacquire)
+            _logger.Extending(Resource, Nonce, Ttl);
+            var lockResult = await _instances.TryExtendAllAsync(_logger, Resource, Nonce, Ttl)
                 .ConfigureAwait(false);
 
             if (lockResult.IsLocked(utcNow, out var validUntil))
@@ -172,7 +169,7 @@ namespace RedlockDotNet
                 return validUntil;
             }
 
-            _logger.ExtendFail(Resource, Nonce, Ttl, tryReacquire);
+            _logger.ExtendFail(Resource, Nonce, Ttl);
             return null;
         }
 
@@ -187,11 +184,11 @@ namespace RedlockDotNet
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
         /// <param name="instances">Instances for acquirement of a lock</param>
-
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
+        /// <param name="metadata"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException">If unable to acquire a lock by repeater loop</exception>
@@ -203,11 +200,12 @@ namespace RedlockDotNet
             ILogger logger,
             in T repeater,
             int maxWaitMs,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         ) where T: IRedlockRepeater
         {
             var (redlock, attemptCount) = TryLockInternal(
-                resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow
+                resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow, metadata
             );
             
             if (redlock != null)
@@ -229,11 +227,11 @@ namespace RedlockDotNet
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
         /// <param name="instances">Instances for acquirement of a lock</param>
-
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
+        /// <param name="metadata"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns>lock or null if unable to acquire</returns>
         public static Redlock? TryLock<T>(
@@ -244,9 +242,10 @@ namespace RedlockDotNet
             ILogger logger,
             in T repeater,
             int maxWaitMs,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         ) where T : IRedlockRepeater 
-            => TryLockInternal(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow).redlock;
+            => TryLockInternal(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow, metadata).redlock;
         
         private static (Redlock? redlock, int attemptCount) TryLockInternal<T>(
             string resource,
@@ -256,13 +255,14 @@ namespace RedlockDotNet
             ILogger logger,
             in T repeater,
             int maxWaitMs,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         ) where T: IRedlockRepeater
         {
             var attemptCount = 0;
             while (true)
             {
-                var @lock = TryLock(resource, nonce, lockTimeToLive, instances, logger, utcNow);
+                var @lock = TryLock(resource, nonce, lockTimeToLive, instances, logger, utcNow, metadata);
                 if (@lock != null)
                 {
                     return (@lock.Value, attemptCount);
@@ -283,7 +283,6 @@ namespace RedlockDotNet
         /// <summary>
         /// Extend current lock in repeater loop
         /// </summary>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
@@ -291,13 +290,12 @@ namespace RedlockDotNet
         /// <returns></returns>
         /// <exception cref="InvalidOperationException">If unable to extend a lock by repeater loop</exception>
         public DateTime Extend<T>(
-            bool tryReacquire,
             in T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
         ) where T: IRedlockRepeater
         {
-            var (newValidUntil, attemptCount) = TryExtendInternal(tryReacquire, repeater, maxWaitMs, utcNow);
+            var (newValidUntil, attemptCount) = TryExtendInternal(repeater, maxWaitMs, utcNow);
             
             if (newValidUntil != null)
             {
@@ -310,22 +308,19 @@ namespace RedlockDotNet
         /// <summary>
         /// Try extend current lock in repeater loop
         /// </summary>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns>New ValidUntil or null if extension failed</returns>
         public DateTime? TryExtend<T>(
-            bool tryReacquire,
             in T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
         ) where T : IRedlockRepeater 
-            => TryExtendInternal(tryReacquire, repeater, maxWaitMs, utcNow).newValidUntil;
+            => TryExtendInternal(repeater, maxWaitMs, utcNow).newValidUntil;
         
         private (DateTime? newValidUntil, int attemptCount) TryExtendInternal<T>(
-            bool tryReacquire,
             in T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
@@ -334,7 +329,7 @@ namespace RedlockDotNet
             var attemptCount = 0;
             while (true)
             {
-                var newValidUntil = TryExtend(tryReacquire, utcNow);
+                var newValidUntil = TryExtend(utcNow);
                 if (newValidUntil != null)
                 {
                     return (newValidUntil.Value, attemptCount);
@@ -363,11 +358,11 @@ namespace RedlockDotNet
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
         /// <param name="instances">Instances for acquirement of a lock</param>
-
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
+        /// <param name="metadata"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException">If unable to acquire a lock by repeater loop</exception>
@@ -378,11 +373,12 @@ namespace RedlockDotNet
             ILogger logger,
             T repeater,
             int maxWaitMs,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         ) where T: IRedlockRepeater
         {
             var (redlock, attemptCount) = await TryLockInternalAsync(
-                resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow);
+                resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow, metadata);
         
             if (redlock != null)
             {
@@ -391,7 +387,7 @@ namespace RedlockDotNet
 
             throw repeater.CreateException(resource, nonce, attemptCount);
         }
-        
+
         /// <summary>
         /// Try acquire distributed lock on all <see cref="IRedlockInstance"/> in repeater loop
         /// </summary>
@@ -402,10 +398,10 @@ namespace RedlockDotNet
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
         /// <param name="instances">Instances for acquirement of a lock</param>
-
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <param name="metadata"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns>lock or null if unable to acquire</returns>
         public static async Task<Redlock?> TryLockAsync<T>(
@@ -415,9 +411,10 @@ namespace RedlockDotNet
             ImmutableArray<IRedlockInstance> instances,
             ILogger logger,
             T repeater,
-            int maxWaitMs
+            int maxWaitMs,
+            IReadOnlyDictionary<string, string>? metadata = null
         ) where T: IRedlockRepeater 
-            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs)).redlock;
+            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, null, metadata)).redlock;
 
         private static async Task<(Redlock? redlock, int attemptCount)> TryLockInternalAsync<T>(
             string resource,
@@ -427,13 +424,14 @@ namespace RedlockDotNet
             ILogger logger,
             T repeater,
             int maxWaitMs,
-            Func<DateTime>? utcNow = null
+            Func<DateTime>? utcNow = null,
+            IReadOnlyDictionary<string, string>? metadata = null
         ) where T: IRedlockRepeater
         {
             var attemptCount = 0;
             while (true)
             {
-                var @lock = await TryLockAsync(resource, nonce, lockTimeToLive, instances, logger, utcNow);
+                var @lock = await TryLockAsync(resource, nonce, lockTimeToLive, instances, logger, utcNow, metadata);
                 if (@lock != null)
                 {
                     return (@lock.Value, attemptCount);
@@ -455,7 +453,6 @@ namespace RedlockDotNet
         /// <summary>
         /// Extend current lock in repeater loop
         /// </summary>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
@@ -463,13 +460,12 @@ namespace RedlockDotNet
         /// <returns></returns>
         /// <exception cref="InvalidOperationException">If unable to extend a lock by repeater loop</exception>
         public async Task<DateTime> ExtendAsync<T>(
-            bool tryReacquire,
             T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
         ) where T: IRedlockRepeater
         {
-            var (newValidUntil, attemptCount) = await TryExtendInternalAsync(tryReacquire, repeater, maxWaitMs, utcNow);
+            var (newValidUntil, attemptCount) = await TryExtendInternalAsync(repeater, maxWaitMs, utcNow);
             
             if (newValidUntil != null)
             {
@@ -482,22 +478,19 @@ namespace RedlockDotNet
         /// <summary>
         /// Try extend current lock in repeater loop
         /// </summary>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
         /// <param name="utcNow"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns>New ValidUntil or null if extension failed</returns>
         public async Task<DateTime?> TryExtendAsync<T>(
-            bool tryReacquire,
             T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
         ) where T : IRedlockRepeater 
-            => (await TryExtendInternalAsync(tryReacquire, repeater, maxWaitMs, utcNow)).newValidUntil;
+            => (await TryExtendInternalAsync(repeater, maxWaitMs, utcNow)).newValidUntil;
         
         private async Task<(DateTime? newValidUntil, int attemptCount)> TryExtendInternalAsync<T>(
-            bool tryReacquire,
             T repeater,
             int maxWaitMs,
             Func<DateTime>? utcNow = null
@@ -506,7 +499,7 @@ namespace RedlockDotNet
             var attemptCount = 0;
             while (true)
             {
-                var newValidUntil = await TryExtendAsync(tryReacquire, utcNow);
+                var newValidUntil = await TryExtendAsync(utcNow);
                 if (newValidUntil != null)
                 {
                     return (newValidUntil.Value, attemptCount);

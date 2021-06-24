@@ -57,7 +57,7 @@ namespace RedlockDotNet
         [Fact]
         public void TryCreate()
         {
-            var l = _f.TryCreate("r", TimeSpan.FromSeconds(10));
+            var l = _f.TryCreate("r", TimeSpan.FromSeconds(10), null);
             Assert.NotNull(l);
             Assert.All(_mem, m => Assert.True(m.Contains("r", l!.Value.Nonce)));
             Assert.Equal(l!.Value.ValidUntilUtc, _expectedValidUntil);
@@ -66,7 +66,7 @@ namespace RedlockDotNet
         [Fact]
         public void TryCreate_Repeater()
         {
-            var l = _f.TryCreate("r", TimeSpan.FromSeconds(10), NoopRedlockRepeater.Instance, 100);
+            var l = _f.TryCreate("r", TimeSpan.FromSeconds(10), NoopRedlockRepeater.Instance, null, 100);
             Assert.NotNull(l);
             Assert.All(_mem, m => Assert.True(m.Contains("r", l!.Value.Nonce)));
             Assert.Equal(l!.Value.ValidUntilUtc, _expectedValidUntil);

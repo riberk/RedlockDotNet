@@ -9,7 +9,6 @@ namespace RedlockDotNet
         public static bool IsFail(this ExtendResult r) => r switch
         {
             ExtendResult.Extend => false,
-            ExtendResult.Reacquire => false,
             ExtendResult.AlreadyAcquiredByAnotherOwner => true,
             ExtendResult.IllegalReacquire => true,
             _ => throw new ArgumentOutOfRangeException(nameof(r), r, null)

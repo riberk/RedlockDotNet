@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <Description>Distributed locks by Redlock algorithm</Description>
     <Nullable>enable</Nullable>
     <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
@@ -10,7 +10,7 @@
     <Authors>Pavel Kurdikov</Authors>
     <Owners>Pavel Kurdikov</Owners>
     <PackageId>$(AssemblyName)</PackageId>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>9.0</LangVersion>
     <DocumentationFile>bin\$(AssemblyName).xml</DocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>RedlockDotNet</RootNamespace>

@@ -31,7 +31,7 @@ namespace RedlockDotNet
             var redlock = MockLock();
             _f.Setup(x => x.DefaultTtl("a")).Returns(_defaultTtl).Verifiable();
             _f.Setup(x => x.DefaultMaxWaitMsBetweenReplays("a", _defaultTtl)).Returns(_defaultMaxWait).Verifiable();
-            _f.Setup(x => x.Create("a", _defaultTtl, It.IsAny<MaxRetriesRedlockRepeater>(), _defaultMaxWait))
+            _f.Setup(x => x.Create("a", _defaultTtl, It.IsAny<MaxRetriesRedlockRepeater>(), _defaultMaxWait, null))
                 .Returns(redlock).Verifiable();
             Assert.Equal(redlock, _f.Object.Create("a"));
         }
@@ -44,7 +44,7 @@ namespace RedlockDotNet
             _f.Setup(x => x.DefaultTtl("a")).Returns(_defaultTtl).Verifiable();
             _f.Setup(x => x.DefaultMaxWaitMsBetweenReplays("a", _defaultTtl)).Returns(_defaultMaxWait).Verifiable();
             var expectedRepeater = new CancellationRedlockRepeater(cts.Token);
-            _f.Setup(x => x.Create("a", _defaultTtl, expectedRepeater, _defaultMaxWait))
+            _f.Setup(x => x.Create("a", _defaultTtl, expectedRepeater, _defaultMaxWait, null))
                 .Returns(redlock).Verifiable();
             Assert.Equal(redlock, _f.Object.Create("a", cts.Token));
         }
@@ -55,7 +55,7 @@ namespace RedlockDotNet
             var redlock = MockLock();
             _f.Setup(x => x.DefaultTtl("a")).Returns(_defaultTtl).Verifiable();
             _f.Setup(x => x.DefaultMaxWaitMsBetweenReplays("a", _defaultTtl)).Returns(_defaultMaxWait).Verifiable();
-            _f.Setup(x => x.CreateAsync("a", _defaultTtl, It.IsAny<MaxRetriesRedlockRepeater>(), _defaultMaxWait))
+            _f.Setup(x => x.CreateAsync("a", _defaultTtl, It.IsAny<MaxRetriesRedlockRepeater>(), _defaultMaxWait, null))
                 .ReturnsAsync(redlock).Verifiable();
             Assert.Equal(redlock, await _f.Object.CreateAsync("a"));
         }
@@ -68,7 +68,7 @@ namespace RedlockDotNet
             _f.Setup(x => x.DefaultTtl("a")).Returns(_defaultTtl).Verifiable();
             _f.Setup(x => x.DefaultMaxWaitMsBetweenReplays("a", _defaultTtl)).Returns(_defaultMaxWait).Verifiable();
             var expectedRepeater = new CancellationRedlockRepeater(cts.Token);
-            _f.Setup(x => x.CreateAsync("a", _defaultTtl, expectedRepeater, _defaultMaxWait))
+            _f.Setup(x => x.CreateAsync("a", _defaultTtl, expectedRepeater, _defaultMaxWait, null))
                 .ReturnsAsync(redlock).Verifiable();
             Assert.Equal(redlock, await _f.Object.CreateAsync("a", cts.Token));
         }

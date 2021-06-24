@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,14 +27,14 @@ namespace RedlockDotNet
         }
 
         /// <inheritdoc />
-        public Redlock? TryCreate(string resource, TimeSpan lockTimeToLive)
+        public Redlock? TryCreate(string resource, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? meta)
         {
             return Redlock.TryLock(resource, Nonce(resource, lockTimeToLive), lockTimeToLive, _impl.Instances, _logger,
-                _opt.Value.UtcNow);
+                _opt.Value.UtcNow, meta);
         }
 
         /// <inheritdoc />
-        public Redlock? TryCreate<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs) 
+        public Redlock? TryCreate<T>(string resource, TimeSpan lockTimeToLive, T repeater, IReadOnlyDictionary<string, string>? meta, int maxWaitMs) 
             where T : IRedlockRepeater
         {
             return Redlock.TryLock(
@@ -44,12 +45,13 @@ namespace RedlockDotNet
                 _logger,
                 repeater,
                 maxWaitMs,
-                _opt.Value.UtcNow
+                _opt.Value.UtcNow, 
+                meta
             );
         }
 
         /// <inheritdoc />
-        public Redlock Create<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs) 
+        public Redlock Create<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs, IReadOnlyDictionary<string, string>? meta = null) 
             where T : IRedlockRepeater
         {
             return Redlock.Lock(
@@ -60,12 +62,13 @@ namespace RedlockDotNet
                 _logger,
                 repeater,
                 maxWaitMs,
-                _opt.Value.UtcNow
+                _opt.Value.UtcNow,
+                meta
             );
         }
 
         /// <inheritdoc />
-        public Task<Redlock?> TryCreateAsync(string resource, TimeSpan lockTimeToLive)
+        public Task<Redlock?> TryCreateAsync(string resource, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? meta = null)
         {
             return Redlock.TryLockAsync(
                 resource,
@@ -73,12 +76,13 @@ namespace RedlockDotNet
                 lockTimeToLive,
                 _impl.Instances,
                 _logger,
-                _opt.Value.UtcNow
+                _opt.Value.UtcNow, 
+                meta
             );
         }
 
         /// <inheritdoc />
-        public Task<Redlock?> TryCreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
+        public Task<Redlock?> TryCreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs, IReadOnlyDictionary<string, string>? meta = null)
             where T : IRedlockRepeater
         {
             return Redlock.TryLockAsync(
@@ -86,13 +90,15 @@ namespace RedlockDotNet
                 Nonce(resource, lockTimeToLive),
                 lockTimeToLive,
                 _impl.Instances,
-                _logger,
-                _opt.Value.UtcNow
+                _logger, 
+                repeater,
+                maxWaitMs,
+                meta
             );
         }
 
         /// <inheritdoc />
-        public Task<Redlock> CreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
+        public Task<Redlock> CreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs, IReadOnlyDictionary<string, string>? meta = null)
             where T : IRedlockRepeater
         {
             return Redlock.LockAsync(
@@ -103,7 +109,8 @@ namespace RedlockDotNet
                 _logger,
                 repeater,
                 maxWaitMs,
-                _opt.Value.UtcNow
+                _opt.Value.UtcNow,
+                meta
             );
         }
 

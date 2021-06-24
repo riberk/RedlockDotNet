@@ -20,11 +20,11 @@ namespace TestUtils
             _minValidity = minValidity;
         }
         
-        private readonly Dictionary<string, string> _data = new Dictionary<string, string>();
-        private readonly Dictionary<string, CancellationTokenSource> _unlockTaskCancellations = new Dictionary<string, CancellationTokenSource>();
+        private readonly Dictionary<string, InstanceLockInfo> _data = new ();
+        private readonly Dictionary<string, CancellationTokenSource> _unlockTaskCancellations = new();
         public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration) => _minValidity(lockTimeToLive, lockingDuration);
 
-        public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive)
+        public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
         {
             lock (this)
             {
@@ -32,12 +32,12 @@ namespace TestUtils
             }
         }
 
-        private bool TryAddInternal(string resource, string nonce, TimeSpan lockTimeToLive)
+        private bool TryAddInternal(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
         {
             var cts = new CancellationTokenSource();
             _unlockTaskCancellations.Add(resource, cts);
             var _ = UnlockAfter(resource, nonce, lockTimeToLive, cts.Token);
-            return _data.TryAdd(resource, nonce);
+            return _data.TryAdd(resource, new InstanceLockInfo(nonce, metadata ?? new Dictionary<string, string>(), lockTimeToLive));
         }
 
         private async Task UnlockAfter(string resource, string nonce, TimeSpan lockTimeToLive, CancellationToken cancellationToken)
@@ -47,16 +47,16 @@ namespace TestUtils
             Unlock(resource, nonce);
         }
 
-        public Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive)
+        public Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
         {
-            return Task.FromResult(TryLock(resource, nonce, lockTimeToLive));
+            return Task.FromResult(TryLock(resource, nonce, lockTimeToLive, metadata));
         }
 
         public void Unlock(string resource, string nonce)
         {
             lock (this)
             {
-                if (_data.TryGetValue(resource, out var actualNonce) && actualNonce == nonce)
+                if (_data.TryGetValue(resource, out var actualNonce) && actualNonce.Nonce == nonce)
                 {
                     _data.Remove(resource);
                     RemoveCancellation(resource);
@@ -70,13 +70,13 @@ namespace TestUtils
             return Task.CompletedTask;
         }
 
-        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive)
         {
             lock (this)
             {
                 if (_data.TryGetValue(resource, out var actualNonce))
                 {
-                    if (actualNonce != nonce)
+                    if (actualNonce.Nonce != nonce)
                     {
                         return ExtendResult.AlreadyAcquiredByAnotherOwner;
                     }
@@ -86,19 +86,26 @@ namespace TestUtils
                     TryAddInternal(resource, nonce, lockTimeToLive);
                     return ExtendResult.Extend;
                 }
-
-                if (!tryReacquire)
-                {
-                    return ExtendResult.IllegalReacquire;
-                }
-                TryAddInternal(resource, nonce, lockTimeToLive);
-                return ExtendResult.Reacquire;
+                return ExtendResult.IllegalReacquire;
             }
         }
 
-        public Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire)
+        public Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive)
         {
-            return Task.FromResult(TryExtend(resource, nonce, lockTimeToLive, tryReacquire));
+            return Task.FromResult(TryExtend(resource, nonce, lockTimeToLive));
+        }
+
+        public InstanceLockInfo? GetInfo(string resource)
+        {
+            lock (this)
+            {
+                return _data.TryGetValue(resource, out var data) ? data : null;
+            }
+        }
+
+        public Task<InstanceLockInfo?> GetInfoAsync(string resource)
+        {
+            return Task.FromResult(GetInfo(resource));
         }
 
         private void RemoveCancellation(string resource)
@@ -118,7 +125,7 @@ namespace TestUtils
         {
             lock (this)
             {
-                return _data.TryGetValue(resource, out var actualNonce) && actualNonce == nonce;
+                return _data.TryGetValue(resource, out var actualNonce) && actualNonce.Nonce == nonce;
             }
         }
             
@@ -130,12 +137,15 @@ namespace TestUtils
                 RemoveCancellation(resource);
             }
         }
-            
+
         public static void Lock(string key, string nonce, ImmutableArray<MemoryRedlockInstance> instances)
+            => Lock(key, nonce, TimeSpan.FromDays(10), instances);
+        
+        public static void Lock(string key, string nonce, TimeSpan ttl, ImmutableArray<MemoryRedlockInstance> instances)
         {
             foreach (var instance in instances)
             {
-                if (!instance.TryLock(key, nonce, TimeSpan.FromDays(10)))
+                if (!instance.TryLock(key, nonce, ttl))
                 {
                     throw new InvalidOperationException($"Already locked: ['{key}'] = '{nonce}'");
                 }

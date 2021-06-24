@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using RedlockDotNet;
 
@@ -12,7 +13,8 @@ namespace TestUtils
         public readonly Exception UnlockAsyncException = new Exception("unlock async");
         public readonly Exception TryExtendException = new Exception("extend"); 
         public readonly Exception TryExtendAsyncException = new Exception("extend async");
-
+        public readonly Exception GetInfoException = new Exception("get info"); 
+        public readonly Exception GetInfoAsyncException = new Exception("get info async");
         public ExceptionRedlockInstance(string name, MinValidityDelegate minValidity)
         {
             Name = name;
@@ -23,13 +25,17 @@ namespace TestUtils
         private readonly MinValidityDelegate _minValidity;
 
         public TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration)  => _minValidity(lockTimeToLive, lockingDuration);
-        public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive) => throw TryLockException;
-        public Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive) => throw TryLockAsyncException;
+        public bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
+            => throw TryLockException;
+        public Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null)
+            => throw TryLockAsyncException;
         public void Unlock(string resource, string nonce) => throw UnlockException;
         public Task UnlockAsync(string resource, string nonce) => throw UnlockAsyncException;
-        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire) => throw TryExtendException;
-        public Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire) => throw TryExtendAsyncException;
-        
+        public ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive) => throw TryExtendException;
+        public Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive) => throw TryExtendAsyncException;
+        public InstanceLockInfo? GetInfo(string resource) => throw GetInfoException;
+        public Task<InstanceLockInfo?> GetInfoAsync(string resource) => throw GetInfoAsyncException;
+
         public override string ToString() => $"ex:{Name}";
         
         public static ExceptionRedlockInstance Create(string name) => Create(name, (ttl, duration) => ttl - duration);

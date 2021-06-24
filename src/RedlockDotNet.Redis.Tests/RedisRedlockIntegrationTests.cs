@@ -97,7 +97,7 @@ namespace RedlockDotNet.Redis.Tests
             {
                 var l = Redlock.TryLock("r", i.ToString(), TimeSpan.FromSeconds(10), _5Inst, _log);
                 Assert.NotNull(l);
-                l.Value.Dispose();
+                l!.Value.Dispose();
             }
         }
 

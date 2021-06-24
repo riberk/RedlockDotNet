@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
+using RedlockDotNet.Internal;
 using RedlockDotNet.Repeaters;
 using TestUtils;
 using Xunit;
@@ -316,121 +317,26 @@ namespace RedlockDotNet
         {
             var instances = MemInstances(3, (ttl, duration) => ttl);
             var impl = instances.ToInstances();
+            Lock("r", "n", instances);
             var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = l.TryExtend(true, () => _now);
+            var actualValidUntil = l.TryExtend(() => _now);
             
             Assert.Equal(_now.Add(Ttl), actualValidUntil);
             Assert.All(instances, i => Assert.True(i.Contains("r", "n")));
         }
-        
-        [Fact]
-        public void TryExtend_NoQuorum()
-        {
-            var instances = MemInstances(3, (ttl, duration) => ttl);
-            Lock("r", "n2", instances[0], instances[1]);
-            var impl = instances.ToInstances();
-            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = l.TryExtend(true, () => _now);
-            
-            Assert.Null(actualValidUntil);            
-            Assert.True(instances[0].Contains("r", "n2"));
-            Assert.True(instances[1].Contains("r", "n2"));
-            Assert.False(instances[2].Contains("r", "n2"));
-            Assert.True(instances[2].Contains("r", "n"));
-        }
-        
-        [Fact]
-        public void TryExtend_NoQuorum_NoReacquire()
-        {
-            var instances = MemInstances(3, (ttl, duration) => ttl);
-            Lock("r", "n2", instances[0], instances[1]);
-            var impl = instances.ToInstances();
-            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = l.TryExtend(false, () => _now);
-            
-            Assert.Null(actualValidUntil);            
-            Assert.True(instances[0].Contains("r", "n2"));
-            Assert.True(instances[1].Contains("r", "n2"));
-            Assert.False(instances[2].Contains("r", "n2"));
-            Assert.False(instances[2].Contains("r", "n"));
-        }
-        
-        [Fact]
-        public void TryExtend_Quorum_NoReacquire()
-        {
-            var instances = MemInstances(3, (ttl, duration) => ttl);
-            var impl = instances.ToInstances();
-            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = l.TryExtend(false, () => _now);
-            
-            Assert.Null(actualValidUntil);            
-            Assert.All(instances, i => Assert.False(i.Contains("r", "n")));
-        }
-        
-        
         
         [Fact]
         public async Task TryExtendAsync()
         {
             var instances = MemInstances(3, (ttl, duration) => ttl);
             var impl = instances.ToInstances();
+            Lock("r", "n", TimeSpan.FromSeconds(10), instances);
             var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
             
-            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            var actualValidUntil = await l.TryExtendAsync(() => _now);
             
             Assert.Equal(_now.Add(Ttl), actualValidUntil);
             Assert.All(instances, i => Assert.True(i.Contains("r", "n")));
-        }
-        
-        [Fact]
-        public async Task TryExtendAsync_NoQuorum()
-        {
-            var instances = MemInstances(3, (ttl, duration) => ttl);
-            Lock("r", "n2", instances[0], instances[1]);
-            var impl = instances.ToInstances();
-            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
-            
-            Assert.Null(actualValidUntil);            
-            Assert.True(instances[0].Contains("r", "n2"));
-            Assert.True(instances[1].Contains("r", "n2"));
-            Assert.False(instances[2].Contains("r", "n2"));
-            Assert.True(instances[2].Contains("r", "n"));
-        }
-        
-        [Fact]
-        public async Task TryExtendAsync_NoQuorum_NoReacquire()
-        {
-            var instances = MemInstances(3, (ttl, duration) => ttl);
-            Lock("r", "n2", instances[0], instances[1]);
-            var impl = instances.ToInstances();
-            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = await l.TryExtendAsync(false, () => _now);
-            
-            Assert.Null(actualValidUntil);            
-            Assert.True(instances[0].Contains("r", "n2"));
-            Assert.True(instances[1].Contains("r", "n2"));
-            Assert.False(instances[2].Contains("r", "n2"));
-            Assert.False(instances[2].Contains("r", "n"));
-        }
-        
-        [Fact]
-        public async Task TryExtendAsync_Quorum_NoReacquire()
-        {
-            var instances = MemInstances(3, (ttl, duration) => ttl);
-            var impl = instances.ToInstances();
-            var l = new Redlock("r", "n", Ttl, _now.AddDays(10), impl, _log);
-            
-            var actualValidUntil = await l.TryExtendAsync(false, () => _now);
-            
-            Assert.Null(actualValidUntil);            
-            Assert.All(instances, i => Assert.False(i.Contains("r", "n")));
         }
         
         [Fact]
@@ -450,11 +356,12 @@ namespace RedlockDotNet
             var task = Task.Run(() =>
             {
                 var l = new Redlock("r", "n", Ttl, _now, mem.ToInstances(), _log);
-                return l.Extend(true, repeater.Object, 600, () => _now);
+                return l.Extend(repeater.Object, 600, () => _now);
             });
             Assert.True(waitInvoked.WaitOne(2000));
             repeater.Verify(x => x.Next(), Times.Once);
             Unlock("r", mem);
+            Lock("r", "n", mem);
             waitAre.Set();
             var actualValidUntil = await task;
             Assert.All(mem, i => Assert.True(i.Contains("r", "n")));
@@ -471,7 +378,7 @@ namespace RedlockDotNet
             var expected = new Exception();
             repeater.Setup(x => x.CreateException("r", "n", 1)).Returns(expected);
             var l = new Redlock("r", "n", Ttl, _now, mem.ToInstances(), _log);
-            var actual = Assert.Throws<Exception>(() => l.Extend(true, repeater.Object, 600));
+            var actual = Assert.Throws<Exception>(() => l.Extend(repeater.Object, 600));
             Assert.Same(expected, actual);
         }
         
@@ -483,7 +390,7 @@ namespace RedlockDotNet
             var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
             repeater.Setup(x => x.Next()).Returns(false);
             var l = new Redlock("r", "n", Ttl, _now, mem.ToInstances(), _log);
-            var actualValidUntil = l.TryExtend(true, repeater.Object, 600);
+            var actualValidUntil = l.TryExtend(repeater.Object, 600);
             Assert.Null(actualValidUntil);
         }
         
@@ -504,11 +411,12 @@ namespace RedlockDotNet
             var task = Task.Run(async () =>
             {
                 var l = new Redlock("r", "n", Ttl, _now, mem.ToInstances(), _log);
-                return await l.ExtendAsync(true, repeater.Object, 600, () => _now);
+                return await l.ExtendAsync(repeater.Object, 600, () => _now);
             });
             Assert.True(waitInvoked.WaitOne(2000));
             repeater.Verify(x => x.Next(), Times.Once);
             Unlock("r", mem);
+            Lock("r", "n", mem);
             waitAre.Set();
             var actualValidUntil = await task;
             Assert.All(mem, i => Assert.True(i.Contains("r", "n")));
@@ -525,7 +433,7 @@ namespace RedlockDotNet
             var expected = new Exception();
             repeater.Setup(x => x.CreateException("r", "n", 1)).Returns(expected);
             var l = new Redlock("r", "n", Ttl, _now, mem.ToInstances(), _log);
-            var actual = await Assert.ThrowsAsync<Exception>(() => l.ExtendAsync(true, repeater.Object, 600));
+            var actual = await Assert.ThrowsAsync<Exception>(() => l.ExtendAsync(repeater.Object, 600));
             Assert.Same(expected, actual);
         }
         
@@ -537,7 +445,7 @@ namespace RedlockDotNet
             var repeater = new Mock<IRedlockRepeater>(MockBehavior.Strict);
             repeater.Setup(x => x.Next()).Returns(false);
             var l = new Redlock("r", "n", Ttl, _now, mem.ToInstances(), _log);
-            var actualValidUntil = await l.TryExtendAsync(true, repeater.Object, 600);
+            var actualValidUntil = await l.TryExtendAsync(repeater.Object, 600);
             Assert.Null(actualValidUntil);
         }
         
@@ -546,8 +454,9 @@ namespace RedlockDotNet
         {
             var err = ErrInstances(2, (ttl, duration) => ttl);
             var mem = MemInstances(3, (ttl, duration) => ttl);
+            Lock("r", "n", mem);
             var l = new Redlock("r", "n", Ttl, _now, TestRedlock.Instances(mem, err), _log);
-            var actualValidUntil = l.TryExtend(true, () => _now);
+            var actualValidUntil = l.TryExtend(() => _now);
             Assert.NotNull(actualValidUntil);
             Assert.Equal(_now.Add(Ttl), actualValidUntil);
             var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
@@ -561,8 +470,9 @@ namespace RedlockDotNet
         {
             var err = ErrInstances(2, (ttl, duration) => ttl);
             var mem = MemInstances(3, (ttl, duration) => ttl);
+            Lock("r", "n", mem);
             var l = new Redlock("r", "n", Ttl, _now, TestRedlock.Instances(mem, err), _log);
-            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            var actualValidUntil = await l.TryExtendAsync(() => _now);
             Assert.NotNull(actualValidUntil);
             Assert.Equal(_now.Add(Ttl), actualValidUntil);
             var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
@@ -576,7 +486,7 @@ namespace RedlockDotNet
         {
             var err = ErrInstances(3);
             var l = new Redlock("r", "n", Ttl, _now, err.ToInstances(), _log);
-            var actualValidUntil = l.TryExtend(true, () => _now);
+            var actualValidUntil = l.TryExtend(() => _now);
             Assert.Null(actualValidUntil);
             var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
             Assert.Equal(3, errorLogs.Length);
@@ -590,7 +500,7 @@ namespace RedlockDotNet
         {
             var err = ErrInstances(3);
             var l = new Redlock("r", "n", Ttl, _now, err.ToInstances(), _log);
-            var actualValidUntil = await l.TryExtendAsync(true, () => _now);
+            var actualValidUntil = await l.TryExtendAsync(() => _now);
             Assert.Null(actualValidUntil);
             var errorLogs = _log.Logs.Where(x => x.LogLevel == LogLevel.Error).ToArray();
             Assert.Equal(3, errorLogs.Length);
@@ -636,18 +546,21 @@ namespace RedlockDotNet
         public void TryExtend_EmptyInstances()
         {
             var l = new Redlock("r", "n", Ttl, _now, _emptyInstances, _log);
-            Assert.Null(l.TryExtend(true));
+            Assert.Null(l.TryExtend());
         }
         
         [Fact]
         public async Task TryExtendAsync_EmptyInstances()
         {
             var l = new Redlock("r", "n", Ttl, _now, _emptyInstances, _log);
-            Assert.Null(await l.TryExtendAsync(true));
+            Assert.Null(await l.TryExtendAsync());
         }
 
         private static void Lock(string key, string nonce, ImmutableArray<MemoryRedlockInstance> instances)
             => MemoryRedlockInstance.Lock(key, nonce, instances);
+        
+        private static void Lock(string key, string nonce, TimeSpan ttl, ImmutableArray<MemoryRedlockInstance> instances)
+            => MemoryRedlockInstance.Lock(key, nonce, ttl, instances);
         
         private static void Lock(string key, string nonce, params MemoryRedlockInstance[] instances)
             => MemoryRedlockInstance.Lock(key, nonce, instances.ToImmutableArray());

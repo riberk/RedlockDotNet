@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using RedlockDotNet.Repeaters;
 
@@ -15,8 +16,9 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
+        /// <param name="meta"></param>
         /// <returns>Lock object or null if it failed</returns>
-        Redlock? TryCreate(string resource, TimeSpan lockTimeToLive);
+        Redlock? TryCreate(string resource, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? meta = null);
 
         /// <summary>
         /// Try acquire distributed lock with random nonce in repeater loop
@@ -28,9 +30,10 @@ namespace RedlockDotNet
         /// </param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <param name="meta"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns></returns>
-        Redlock? TryCreate<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs = 200)
+        Redlock? TryCreate<T>(string resource, TimeSpan lockTimeToLive, T repeater, IReadOnlyDictionary<string, string>? meta = null, int maxWaitMs = 200)
             where T : IRedlockRepeater;
 
         /// <summary>
@@ -43,9 +46,10 @@ namespace RedlockDotNet
         /// </param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <param name="meta"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns></returns>
-        Redlock Create<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
+        Redlock Create<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs, IReadOnlyDictionary<string, string>? meta = null)
             where T : IRedlockRepeater;
         
         /// <summary>
@@ -56,8 +60,9 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
+        /// <param name="meta"></param>
         /// <returns>Lock object or null if it failed</returns>
-        Task<Redlock?> TryCreateAsync(string resource, TimeSpan lockTimeToLive);
+        Task<Redlock?> TryCreateAsync(string resource, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? meta = null);
         
         /// <summary>
         /// Try acquire distributed lock with random nonce in repeater loop
@@ -69,9 +74,10 @@ namespace RedlockDotNet
         /// </param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <param name="meta"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns></returns>
-        Task<Redlock?> TryCreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
+        Task<Redlock?> TryCreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs, IReadOnlyDictionary<string, string>? meta = null)
             where T : IRedlockRepeater;
 
         /// <summary>
@@ -84,9 +90,10 @@ namespace RedlockDotNet
         /// </param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <param name="meta"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns></returns>
-        Task<Redlock> CreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs)
+        Task<Redlock> CreateAsync<T>(string resource, TimeSpan lockTimeToLive, T repeater, int maxWaitMs, IReadOnlyDictionary<string, string>? meta = null)
             where T : IRedlockRepeater;
         
         /// <summary>

@@ -59,9 +59,9 @@ namespace RedlockDotNet.Redis.Tests
             var f = _services.BuildServiceProvider().GetRequiredService<IRedlockFactory>();
             using (var l = f.Create("r"))
             {
-                Assert.Equal(l.Nonce, Redis.Redis1.GetDatabase().StringGet("locks_r"));
-                Assert.Equal(l.Nonce, Redis.Redis2.GetDatabase().StringGet("locks_r"));
-                Assert.Equal(l.Nonce, Redis.Redis3.GetDatabase().StringGet("locks_r"));
+                Assert.Equal(l.Nonce, Redis.Redis1.GetDatabase().HashGet("locks_r", "nonce"));
+                Assert.Equal(l.Nonce, Redis.Redis2.GetDatabase().HashGet("locks_r", "nonce"));
+                Assert.Equal(l.Nonce, Redis.Redis3.GetDatabase().HashGet("locks_r", "nonce"));
             }
 
             Assert.False(Redis.Redis1.GetDatabase().KeyExists("locks_r"));

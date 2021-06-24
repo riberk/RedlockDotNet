@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace RedlockDotNet
@@ -15,18 +16,6 @@ namespace RedlockDotNet
         /// <param name="lockingDuration">Elapsed time from start of locking on first server to end on last server</param>
         /// <returns>Minimum validity time of acquired lock</returns>
         TimeSpan MinValidity(TimeSpan lockTimeToLive, TimeSpan lockingDuration);
-        
-        /// <summary>
-        /// Try acquire lock resource on server
-        /// </summary>
-        /// <param name="resource">Resource to lock</param>
-        /// <param name="nonce">Value to differentiate lock owners of resource on server</param>
-        /// <param name="lockTimeToLive">
-        /// Time to live of acquired lock.
-        /// Attention! If this ttl are expired, code that the lock uses has a safety violation
-        /// </param>
-        /// <returns>true if lock acquired on the current instance, otherwise false</returns>
-        bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive);
 
         /// <summary>
         /// Try acquire lock resource on server
@@ -37,8 +26,22 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
+        /// <param name="metadata">Metadata for lock</param>
         /// <returns>true if lock acquired on the current instance, otherwise false</returns>
-        Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive);
+        bool TryLock(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null);
+
+        /// <summary>
+        /// Try acquire lock resource on server
+        /// </summary>
+        /// <param name="resource">Resource to lock</param>
+        /// <param name="nonce">Value to differentiate lock owners of resource on server</param>
+        /// <param name="lockTimeToLive">
+        /// Time to live of acquired lock.
+        /// Attention! If this ttl are expired, code that the lock uses has a safety violation
+        /// </param>
+        /// <param name="metadata">Metadata for lock</param>
+        /// <returns>true if lock acquired on the current instance, otherwise false</returns>
+        Task<bool> TryLockAsync(string resource, string nonce, TimeSpan lockTimeToLive, IReadOnlyDictionary<string, string>? metadata = null);
 
         /// <summary>
         /// Unlock resource on server
@@ -63,9 +66,8 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="tryReacquire">If true we try to reacquire lock when it is lost</param>
         /// <returns>Result of extend operation</returns>
-        ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire);
+        ExtendResult TryExtend(string resource, string nonce, TimeSpan lockTimeToLive);
         
         /// <summary>
         /// Try extend lock resource on server
@@ -76,8 +78,13 @@ namespace RedlockDotNet
         /// Time to live of acquired lock.
         /// Attention! If this ttl are expired, code that the lock uses has a safety violation
         /// </param>
-        /// <param name="tryReacquire">If true (default) we try to reacquire lock when it is lost</param>
         /// <returns>Result of extend operation</returns>
-        Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive, bool tryReacquire);
+        Task<ExtendResult> TryExtendAsync(string resource, string nonce, TimeSpan lockTimeToLive);
+
+        /// <summary>Resolve lock info or null if lock not acquired</summary>
+        InstanceLockInfo? GetInfo(string resource);
+
+        /// <summary>Resolve lock info or null if lock not acquired</summary>
+        Task<InstanceLockInfo?> GetInfoAsync(string resource);
     }
 }

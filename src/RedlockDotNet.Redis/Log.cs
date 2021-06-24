@@ -19,9 +19,9 @@ namespace RedlockDotNet.Redis
             LoggerMessage.Define<string, string, string, string, bool>(LogLevel.Trace, new EventId(3, nameof(Unlocked)),
                 "Unlocked  ['{}'] = '{}' on '{}' (redis key: '{}'). Result: {}");
         
-        private static readonly Action<ILogger, string, string, string, TimeSpan, bool, string, Exception?> _tryExtendLock =
-            LoggerMessage.Define<string, string, string, TimeSpan, bool, string>(LogLevel.Trace, new EventId(4, nameof(TryExtendLock)),
-                "Try extend lock ['{}'] = '{}' on '{}', ttl: {}, tryReacquire: {} (redis key: '{}')");
+        private static readonly Action<ILogger, string, string, string, TimeSpan, string, Exception?> _tryExtendLock =
+            LoggerMessage.Define<string, string, string, TimeSpan, string>(LogLevel.Trace, new EventId(4, nameof(TryExtendLock)),
+                "Try extend lock ['{}'] = '{}' on '{}', ttl: {} (redis key: '{}')");
         
         private static readonly Action<ILogger, string, string, string, TimeSpan, string, string, Exception?> _extendScriptExecuted =
             LoggerMessage.Define<string, string, string, TimeSpan, string, string>(LogLevel.Trace, new EventId(5, nameof(Unlocking)),
@@ -40,8 +40,8 @@ namespace RedlockDotNet.Redis
             => _unlocked(l, resource, nonce, instanceName, redisKey, result, null);
         
         public static void TryExtendLock(this ILogger l, string resource, string nonce, string instanceName, 
-            TimeSpan lockTtl, bool tryReacquire, string redisKey) 
-            => _tryExtendLock(l, resource, nonce, instanceName, lockTtl, tryReacquire, redisKey, null);
+            TimeSpan lockTtl, string redisKey) 
+            => _tryExtendLock(l, resource, nonce, instanceName, lockTtl, redisKey, null);
         
         public static void ExtendScriptExecuted(this ILogger l, string resource, string nonce, string instanceName, 
             TimeSpan lockTtl, string redisKey, RedisResult result) 

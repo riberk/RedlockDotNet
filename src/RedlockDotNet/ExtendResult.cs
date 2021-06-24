@@ -11,11 +11,6 @@ namespace RedlockDotNet
         Extend = 1,
         
         /// <summary>
-        /// The lock was lost and re-acquired
-        /// </summary>
-        Reacquire = 2,
-        
-        /// <summary>
         /// The lock could not be extended because it was acquired by another owner
         /// </summary>
         AlreadyAcquiredByAnotherOwner = -1,
