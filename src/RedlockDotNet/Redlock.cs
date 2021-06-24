@@ -401,6 +401,7 @@ namespace RedlockDotNet
         /// <param name="logger"></param>
         /// <param name="repeater"></param>
         /// <param name="maxWaitMs">Max wait time before next attempt after previous failed</param>
+        /// <param name="utcNow"></param>
         /// <param name="metadata"></param>
         /// <typeparam name="T">Type of repeater</typeparam>
         /// <returns>lock or null if unable to acquire</returns>
@@ -412,9 +413,10 @@ namespace RedlockDotNet
             ILogger logger,
             T repeater,
             int maxWaitMs,
+            Func<DateTime>? utcNow = null,
             IReadOnlyDictionary<string, string>? metadata = null
         ) where T: IRedlockRepeater 
-            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, null, metadata)).redlock;
+            => (await TryLockInternalAsync(resource, nonce, lockTimeToLive, instances, logger, repeater, maxWaitMs, utcNow, metadata)).redlock;
 
         private static async Task<(Redlock? redlock, int attemptCount)> TryLockInternalAsync<T>(
             string resource,

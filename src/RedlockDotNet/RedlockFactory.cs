@@ -93,6 +93,7 @@ namespace RedlockDotNet
                 _logger, 
                 repeater,
                 maxWaitMs,
+                _opt.Value.UtcNow,
                 meta
             );
         }
