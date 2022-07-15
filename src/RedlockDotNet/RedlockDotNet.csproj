@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Description>Distributed locks by Redlock algorithm</Description>
     <Nullable>enable</Nullable>
     <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
@@ -10,7 +10,7 @@
     <Authors>Pavel Kurdikov</Authors>
     <Owners>Pavel Kurdikov</Owners>
     <PackageId>$(AssemblyName)</PackageId>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
     <DocumentationFile>bin\$(AssemblyName).xml</DocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>RedlockDotNet</RootNamespace>
@@ -20,9 +20,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="3.1.6" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.6" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.6" />
+    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
   </ItemGroup>
 </Project>

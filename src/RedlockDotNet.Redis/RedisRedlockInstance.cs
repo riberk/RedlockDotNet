@@ -13,7 +13,7 @@ namespace RedlockDotNet.Redis
     public sealed class RedisRedlockInstance : IRedlockInstance
     {
         internal readonly Func<IDatabase> SelectDb;
-        private readonly Func<string, string> _createKeyFromResourceName;
+        private readonly Func<string, RedisKey> _createKeyFromResourceName;
         private readonly string _name;
         private readonly ILogger _logger;
         private readonly float _clockDriftFactor;
@@ -84,7 +84,7 @@ end
         /// </summary>
         public RedisRedlockInstance(
             Func<IDatabase> selectDb,
-            Func<string, string> createKeyFromResourceName, 
+            Func<string, RedisKey> createKeyFromResourceName, 
             string name,
             float clockDriftFactor,
             ILogger logger
@@ -248,7 +248,7 @@ end
         /// <summary>
         /// Build key for redis from resource name
         /// </summary>
-        private string Key(string resource) => _createKeyFromResourceName(resource);
+        private RedisKey Key(string resource) => _createKeyFromResourceName(resource);
 
         /// <inheritdoc />
         public override string ToString() => _name;
@@ -265,7 +265,7 @@ end
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
-            Func<string, string> createKeyFromResourceName,
+            Func<string, RedisKey> createKeyFromResourceName,
             int database,
             string name,
             float clockDriftFactor,
@@ -283,7 +283,7 @@ end
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
-            Func<string, string> createKeyFromResourceName,
+            Func<string, RedisKey> createKeyFromResourceName,
             int database,
             float clockDriftFactor,
             ILogger logger
@@ -303,7 +303,7 @@ end
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
-            Func<string, string> createKeyFromResourceName,
+            Func<string, RedisKey> createKeyFromResourceName,
             string name,
             float clockDriftFactor,
             ILogger logger
@@ -325,7 +325,7 @@ end
         /// <returns></returns>
         public static IRedlockInstance Create(
             IConnectionMultiplexer con,
-            Func<string, string> createKeyFromResourceName,
+            Func<string, RedisKey> createKeyFromResourceName,
             float clockDriftFactor,
             ILogger logger
         ) => Create(con, createKeyFromResourceName, GetName(con), clockDriftFactor, logger);

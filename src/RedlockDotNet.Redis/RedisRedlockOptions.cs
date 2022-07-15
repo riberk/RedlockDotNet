@@ -1,4 +1,5 @@
 using System;
+using StackExchange.Redis;
 
 namespace RedlockDotNet.Redis
 {
@@ -8,6 +9,6 @@ namespace RedlockDotNet.Redis
     public class RedisRedlockOptions
     {
         /// <summary>Creates redis key from name of locking resource</summary>
-        public Func<string, string> RedisKeyFromResourceName { get; set; } = k => k;
+        public Func<string, RedisKey> RedisKeyFromResourceName { get; set; } = k => k;
     }
 }
