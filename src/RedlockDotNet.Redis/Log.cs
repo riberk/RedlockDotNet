@@ -23,8 +23,8 @@ namespace RedlockDotNet.Redis
             LoggerMessage.Define<string, string, string, TimeSpan, string>(LogLevel.Trace, new EventId(4, nameof(TryExtendLock)),
                 "Try extend lock ['{}'] = '{}' on '{}', ttl: {} (redis key: '{}')");
         
-        private static readonly Action<ILogger, string, string, string, TimeSpan, string, string, Exception?> _extendScriptExecuted =
-            LoggerMessage.Define<string, string, string, TimeSpan, string, string>(LogLevel.Trace, new EventId(5, nameof(Unlocking)),
+        private static readonly Action<ILogger, string, string, string, TimeSpan, string, string?, Exception?> _extendScriptExecuted =
+            LoggerMessage.Define<string, string, string, TimeSpan, string, string?>(LogLevel.Trace, new EventId(5, nameof(Unlocking)),
                 "Extend script executed ['{}'] = '{}' on '{}', ttl: {}, (redis key: '{}'). Result: '{}'");
         
         // ReSharper restore InconsistentNaming
@@ -45,6 +45,6 @@ namespace RedlockDotNet.Redis
         
         public static void ExtendScriptExecuted(this ILogger l, string resource, string nonce, string instanceName, 
             TimeSpan lockTtl, string redisKey, RedisResult result) 
-            => _extendScriptExecuted(l, resource, nonce, instanceName, lockTtl, redisKey, (string)result, null);
+            => _extendScriptExecuted(l, resource, nonce, instanceName, lockTtl, redisKey, (string?)result, null);
     }
 }

@@ -5,7 +5,7 @@ namespace RedlockDotNet.Internal
 {
     internal static class ThreadSafeRandom
     {
-        private static readonly RNGCryptoServiceProvider Global = new RNGCryptoServiceProvider();
+        private static readonly RandomNumberGenerator Global = RandomNumberGenerator.Create();
         
         [ThreadStatic]
         private static Random? _local;

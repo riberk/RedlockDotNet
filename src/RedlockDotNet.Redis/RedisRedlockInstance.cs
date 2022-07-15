@@ -220,7 +220,11 @@ end
             return (transaction, entriesTask, ttlTask);
         }
         
-        private static InstanceLockInfo? ToInstanceLockInfo(string resource, Task<TimeSpan?> ttlTask, Task<HashEntry[]> entriesTask)
+        private static InstanceLockInfo? ToInstanceLockInfo(
+            string resource,
+            Task<TimeSpan?> ttlTask, 
+            Task<HashEntry[]> entriesTask
+        )
         {
             var entries = entriesTask.Result;
             if (!entries.Any())
@@ -228,7 +232,11 @@ end
                 return null;
             }
 
-            var meta = entries.ToDictionary(x => (string) x.Name, x => (string) x.Value);
+            var meta = entries.ToDictionary(
+                x => (string?)x.Name ?? throw new InvalidOperationException("key is null"),
+                x => (string?)x.Value ?? throw new InvalidOperationException("value is null")
+            );
+            
             if (!meta.Remove("nonce", out var nonce))
             {
                 throw new InvalidOperationException($"Nonce not found in {resource}");
